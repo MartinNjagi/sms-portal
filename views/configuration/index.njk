@@ -1,0 +1,82 @@
+{% extends "layout-v2.njk" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ title }}</h1>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="list-group" id="settings-list-tab" role="tablist">
+            <a class="list-group-item list-group-item-action active" data-toggle="list" href="#profile" role="tab">Profile Info</a>
+            <a class="list-group-item list-group-item-action" data-toggle="list" href="#senderids" role="tab">Sender IDs</a>
+            <a class="list-group-item list-group-item-action" data-toggle="list" href="#api" role="tab">API & Webhooks</a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="tab-content" id="nav-tabContent">
+            
+            <div class="tab-pane fade show active" id="profile" role="tabpanel">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h3>Profile Information</h3>
+                        </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="senderids" role="tabpanel">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h3>My Sender IDs</h3>
+                            <button class="btn btn-sm btn-primary">Request New</button>
+                        </div>
+                        <table class="table mt-3">
+                            <thead>
+                                <tr>
+                                    <th>Sender ID</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sender in senderIds %}
+                                <tr>
+                                    <td><strong>{{ sender.id }}</strong></td>
+                                    <td>
+                                        {% if sender.status == 'approved' %}
+                                            <span class="badge badge-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="api" role="tabpanel">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h3>Developer API</h3>
+                        <div class="form-group mt-3">
+                            <label>Live API Key</label>
+                            <input type="text" class="form-control" value="{{ devSettings.apiKey }}" readonly>
+                        </div>
+                        <div class="form-group mt-3">
+                            <label>DLR Webhook URL</label>
+                            <input type="url" class="form-control" value="{{ devSettings.webhookUrl }}" placeholder="https://your-domain.com/dlr">
+                            <small class="text-muted">The Go Engine will POST delivery reports to this URL.</small>
+                        </div>
+                        <button class="btn btn-success">Save Webhook</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

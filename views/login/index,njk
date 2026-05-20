@@ -1,0 +1,142 @@
+{% extends "layout-v2.njk" %}
+
+{% block content %}
+<div id="login" class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background-color: #f4f6f9;">
+    <div class="card shadow-sm p-4" style="width: 100%; max-width: 450px;">
+        
+        <div class="text-center mb-4">
+            <h2 v-text="title" class="mt-3"></h2>
+        </div>
+
+        <form v-if="show_signup === 0" @submit.prevent="login">
+            <div class="form-group mb-3">
+                <label>Mobile Number</label>
+                <input type="text" class="form-control" v-model="msisdn" placeholder="e.g. 254712345678" required>
+            </div>
+            <div class="form-group mb-3">
+                <label>Password</label>
+                <div class="input-group">
+                    <input :type="showPassword ? 'text' : 'password'" class="form-control" v-model="password" required>
+                    <button class="btn btn-outline-secondary" type="button" @click="toggleShowPassword">
+                        <span v-text="showPassword ? 'Hide' : 'Show'"></span>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Authenticating...</span>
+                <span v-else>Sign In</span>
+            </button>
+            <div class="d-flex justify-content-between mt-3 text-sm">
+                <a href="#" @click.prevent="showForgotPassword" class="text-decoration-none">Forgot Password?</a>
+                <a href="#" @click.prevent="showJoin" class="text-decoration-none">Create Account</a>
+            </div>
+        </form>
+
+        <form v-if="show_signup === 1" @submit.prevent="signup">
+            <div class="form-group mb-2">
+                <label>Full Name</label>
+                <input type="text" class="form-control" v-model="fullname" required>
+            </div>
+            <div class="form-group mb-2">
+                <label>Mobile Number</label>
+                <input type="text" class="form-control" v-model="msisdn" required>
+            </div>
+            <div class="form-group mb-2">
+                <label>Email</label>
+                <input type="email" class="form-control" v-model="email" required>
+            </div>
+            <div class="form-group mb-2">
+                <label>Company</label>
+                <input type="text" class="form-control" v-model="company" required>
+            </div>
+            <div class="form-group mb-2">
+                <label>Password</label>
+                <input type="password" class="form-control" v-model="password" required>
+            </div>
+            <div class="form-group mb-3">
+                <label>Confirm Password</label>
+                <input type="password" class="form-control" v-model="password1" required>
+            </div>
+            <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="terms" v-model="terms">
+                <label class="form-check-label" for="terms">I accept the terms and conditions</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Creating Account...</span>
+                <span v-else>Sign Up</span>
+            </button>
+            <div class="text-center mt-3">
+                <a href="#" @click.prevent="showLogin" class="text-decoration-none">Already have an account? Sign In</a>
+            </div>
+        </form>
+
+        <form v-if="show_signup === 2" @submit.prevent="reset">
+            <p class="text-muted text-center mb-4">Enter your mobile number to receive a verification code to reset your password.</p>
+            <div class="form-group mb-3">
+                <label>Mobile Number</label>
+                <input type="text" class="form-control" v-model="msisdn" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-2" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Sending...</span>
+                <span v-else>Send Reset Code</span>
+            </button>
+            <div class="text-center mt-3">
+                <a href="#" @click.prevent="showLogin" class="text-decoration-none">Back to Login</a>
+            </div>
+        </form>
+
+        <form v-if="show_signup === 3" @submit.prevent="otp">
+            <p class="text-muted text-center mb-4">Enter the code sent to your phone and set your new password.</p>
+            <div class="form-group mb-2">
+                <label>Mobile Number</label>
+                <input type="text" class="form-control" v-model="msisdn" readonly>
+            </div>
+            <div class="form-group mb-2">
+                <label>Verification Code</label>
+                <input type="text" class="form-control" v-model="code" required>
+            </div>
+            <div class="form-group mb-2">
+                <label>New Password</label>
+                <input type="password" class="form-control" v-model="password" required>
+            </div>
+            <div class="form-group mb-3">
+                <label>Confirm New Password</label>
+                <input type="password" class="form-control" v-model="password1" required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 mt-2" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Resetting...</span>
+                <span v-else>Confirm & Reset Password</span>
+            </button>
+            <div class="d-flex justify-content-between mt-3">
+                <a href="#" @click.prevent="resendCode" class="text-decoration-none">Resend Code</a>
+                <a href="#" @click.prevent="showLogin" class="text-decoration-none">Back to Login</a>
+            </div>
+        </form>
+
+        <form v-if="show_signup === 4" @submit.prevent="verificationOtp">
+            <p class="text-muted text-center mb-4">Enter the 6-digit code sent to your phone to activate your account.</p>
+            <div class="form-group mb-3">
+                <label>Mobile Number</label>
+                <input type="text" class="form-control" v-model="msisdn" readonly>
+            </div>
+            <div class="form-group mb-3">
+                <label>Verification Code</label>
+                <input type="text" class="form-control" v-model="OTPcode" required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 mt-2" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Verifying...</span>
+                <span v-else>Verify Account</span>
+            </button>
+            <div class="d-flex justify-content-between mt-3">
+                <a href="#" @click.prevent="resendCode" class="text-decoration-none">Resend Code</a>
+                <a href="#" @click.prevent="showLogin" class="text-decoration-none">Back to Login</a>
+            </div>
+        </form>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/public/js/customjs/login.js"></script>
+{% endblock %}

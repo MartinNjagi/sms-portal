@@ -1,0 +1,54 @@
+{% extends "layout-v2.njk" %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h1>{{ title }}</h1>
+    </div>
+
+<div class="card shadow-sm mt-4 border-0">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Company Name</th>
+                    <th>Status</th>
+                    <th>Credit Balance (Live)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client.name }}</td>
+                    <td>
+                        {% if client.status == 'pending' %}
+                            <span class="badge badge-warning">Pending Activation</span>
+                        {% else %}
+                            <span class="badge badge-success">Active</span>
+                        {% endif %}
+                    </td>
+                    <td class="font-weight-bold text-primary">
+                        {{ client.balance | default(0) | intcomma }}
+                    </td>
+                    <td>
+                        {% if client.status == 'pending' %}
+                            <button class="btn btn-sm btn-success" onclick="activateClient('{{ client.id }}')">Activate</button>
+                        {% endif %}
+                        
+                        <a href="/clients/{{ client.id }}/wallet" class="btn btn-sm btn-outline-secondary">View Ledger</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function activateClient(clientId) {
+    if(!confirm('Verify and activate this client?')) return;
+    const res = await fetch(`/clients/api/${clientId}/activate`, { method: 'POST' });
+    if(res.ok) window.location.reload();
+}
+</script>
+{% endblock %}

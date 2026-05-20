@@ -1,0 +1,48 @@
+{% extends "layout-v2.njk" %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h1>{{ title }}</h1>
+    <button class="btn btn-success shadow-sm">Top Up Account</button>
+</div>
+
+<div class="card shadow-sm mt-4 border-0">
+    <div class="card-body">
+        <h4 class="card-title mb-4">Transaction History</h4>
+        <table class="table table-hover">
+            <thead class="bg-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Transaction Type</th>
+                    <th>Reference / Campaign</th>
+                    <th class="text-right">Amount (Credits)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr>
+                    <td class="text-muted">{{ tx.createdAt | date("MMM D, YYYY HH:mm") }}</td>
+                    <td>
+                        {% if tx.type == 'recharge' %}
+                            <span class="badge badge-success">Top Up</span>
+                        {% elif tx.type == 'deduction' %}
+                            <span class="badge badge-secondary">Campaign Send</span>
+                        {% elif tx.type == 'refund' %}
+                            <span class="badge badge-info">Failed Message Refund</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.reference }}</td>
+                    <td class="text-right font-weight-bold {% if tx.amount > 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ tx.amount | intcomma }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center py-4 text-muted">No transactions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

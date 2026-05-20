@@ -1,0 +1,44 @@
+{% extends "layout-v2.njk" %}
+
+{% block content %}
+<div class="dashboard-overview">
+    <h1>Welcome back!</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Current Balance</h3>
+            <h2>{{ stats.balance }} {{ stats.currency }}</h2> 
+        </div>
+        <div class="stat-card">
+            <h3>Messages Sent Today</h3>
+            <h2>{{ stats.sentToday }}</h2>
+        </div>
+    </div>
+
+    <div class="recent-campaigns">
+        <h3>Recent Campaigns</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campaign in recentActivity %}
+                <tr>
+                    <td>{{ campaign.name }}</td>
+                    <td>{{ campaign.status }}</td>
+                    <td>{{ campaign.totalSent }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3">No recent campaigns found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
