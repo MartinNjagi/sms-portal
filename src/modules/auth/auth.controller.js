@@ -11,7 +11,7 @@ authController.renderLogin = (req, res) => {
     if (req.cookies.session_token) {
         return res.redirect('/dashboard');
     }
-    res.render('scripts/login.njk', { title: 'Login - SMS Platform' });
+    res.render('login/index.njk', { title: 'Login - SMS Platform' });
 };
 
 /**

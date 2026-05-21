@@ -49,7 +49,8 @@
                 
                 <li class="nav-category">Messaging</li>
                 <li class="{% if alias == 'message' %}active{% endif %}">
-                    <a href="/api/messages/bulk">Bulk SMS</a> </li>
+                    <a href="/api/messages/bulk">Bulk SMS</a>
+                </li>
                 <li class="{% if alias == 'contacts' %}active{% endif %}">
                     <a href="/contacts">Address Book</a>
                 </li>
@@ -80,15 +81,12 @@
                     <a href="/logout" class="btn btn-sm btn-outline-danger">Sign Out</a>
                 </div>
             </div>
-
-            {% block content %}{% endblock %}
-
-        </div>
-    </div>
-
-    {% else %}
-        {% block content %}{% endblock %}
     {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if user %}
+        </div> </div> {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -96,12 +94,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        function saveObject(key, obj) {
-            localStorage.setItem(key, JSON.stringify(obj));
-        }
-        function getObject(key) {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
+        function saveObject(key, obj) { localStorage.setItem(key, JSON.stringify(obj)); }
+        function getObject(key) { 
+            const data = localStorage.getItem(key); 
+            return data ? JSON.parse(data) : null; 
         }
     </script>
 
