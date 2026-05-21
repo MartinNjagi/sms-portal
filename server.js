@@ -11,6 +11,8 @@ const path = require('path');
 // Initialize Express
 const app = express();
 
+app.use(express.static(path.join(__dirname, 'public')));
+
 // --- CONFIGURE NUNJUCKS ---
 nunjucks.configure(path.join(__dirname, 'app', 'views'), { 
     autoescape: true,
@@ -33,7 +35,18 @@ const io = new Server(server, {
 
 // --- Middlewares ---
 // Security headers
-app.use(helmet()); 
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "https:"],
+            mediaSrc: ["'self'", "data:"], // <--- Add this line to clear the last warning
+            connectSrc: ["'self'", "ws:", "wss:"] 
+        }
+    }
+}));
 // Cross-Origin Resource Sharing
 app.use(cors());
 // Parse JSON bodies (Keep limits reasonable, large files go to Cloud Storage now!)
