@@ -45,12 +45,88 @@ let loginVM = new Vue({
             this.title = "Enter Verification Code";
             this.show_signup = 4;
         },
+        showLoginOTP: function () {
+            this.title = "Enter Login OTP";
+            this.show_signup = 5; // New state specifically for Login 2FA
+        },
         showError: function (err) {
             this.loading = '';
-            const msg = err.response && err.response.data ? err.response.data.message : err.message;
+            
+            // Safely extract the message with a fallback
+            let msg = "An unexpected error occurred.";
+            if (err.response && err.response.data && err.response.data.error) {
+                msg = err.response.data.error; 
+            } else if (err.response && err.response.data && err.response.data.message) {
+                msg = err.response.data.message;
+            } else if (err.message) {
+                msg = err.message;
+            }
+
             this.error = msg;
             swal("Failed", msg, "error");
         },
+        
+        // --- AUTH: STEP 1 (Verify Password & Send SMS) ---
+        login: async function (ele) {
+            if (ele) ele.preventDefault();
+            if (this.loading) return;
+            if (!this.password) { swal("Missing Fields", "Missing Password", "error"); return; }
+            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
+            
+            let data = {
+                msisdn: this.msisdn,
+                password: this.password
+            };
+            
+            let vm = this;
+            vm.loading = "loading";
+
+            // Hit our new BFF endpoint for Step 1
+            axios.post('/api/auth/login/request-otp', data)
+                .then(function (response) {
+                    vm.loading = "";
+                    // Password is correct, SMS triggered. Show the OTP input view.
+                    vm.showLoginOTP(); 
+                    console.log("After Login");
+                    
+                    swal("OTP Sent", "Please check your phone for the verification code.", "success");
+                })
+                .catch(function (err) {
+                    vm.showError(err);
+                });
+        },
+
+        // --- AUTH: STEP 2 (Verify OTP & Redirect) ---
+        verifyLoginOTP: function (ele) {
+            if (ele) ele.preventDefault();
+            if (this.loading) return;
+            if (!this.OTPcode) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
+            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
+
+            let data = {
+                msisdn: this.msisdn,
+                code: this.OTPcode
+            };
+
+            let vm = this;
+            vm.loading = "loading";
+
+            // public/js/customjs/login.js
+            axios.post('/api/auth/login/verify-otp', data)
+                .then(function (response) {
+                    // You can save the user & permissions to localStorage or Vuex here
+                    // so the dashboard knows who is logged in!
+                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                    localStorage.setItem('permissions', JSON.stringify(response.data.permissions));
+                    
+                    // The browser automatically brings the HttpOnly cookie along
+                    window.location.replace(response.data.redirectUrl);
+                }).catch(function (err) {
+                    vm.showError(err);
+                });
+        },
+
+        // --- OTHER ACCOUNT FLOWS ---
         otp: function () {
             if (this.loading) return;
             if (!this.code) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
@@ -67,10 +143,11 @@ let loginVM = new Vue({
             let vm = this;
             vm.loading = "loading";
 
-            axios.post('/api/auth/login', data) // Adjusted to hit our BFF endpoint if needed, or Go directly via BFF proxy
+            axios.post('/request/api', data) 
                 .then(function (response) {
                     vm.loading = "";
-                    window.location.replace('/dashboard');
+                    swal("Success", "Password reset successfully. Please log in.", "success");
+                    vm.showLogin();
                 })
                 .catch(function (err) {
                     vm.showError(err);
@@ -90,10 +167,10 @@ let loginVM = new Vue({
             let vm = this;
             vm.loading = "loading";
 
-            axios.post('/request/api', data) // Point this to your BFF route when ready
+            axios.post('/request/api', data) 
                 .then(function (response) {
                     vm.loading = "";
-                    if (response.status === 201) {
+                    if (response.status === 201 || response.status === 200) {
                         swal("Success", "Account Verified! Please log in.", "success");
                         vm.showLogin();
                     }
@@ -120,34 +197,6 @@ let loginVM = new Vue({
                 })
                 .catch(function (err) {
                     vm.showError(err);
-                });
-        },
-        login: async function () {
-            if (this.loading) return;
-            if (!this.password) { swal("Missing Fields", "Missing Password", "error"); return; }
-            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
-            
-            let data = {
-                username: this.msisdn, // Mapped for your BFF auth controller
-                password: this.password
-            };
-            let vm = this;
-            vm.loading = "loading";
-
-            // Hit our new secure BFF endpoint!
-            axios.post('/api/auth/login', data)
-                .then(function (response) {
-                    vm.loading = "";
-                    // The backend set the HttpOnly cookie, just redirect
-                    window.location.replace(response.data.redirectUrl || '/dashboard');
-                })
-                .catch(function (err) {
-                    vm.loading = "";
-                    if (err.response && err.response.status === 423) {
-                        vm.showOTPVerification();
-                    } else {
-                        vm.showError(err);
-                    }
                 });
         },
         signup: function (ele) {
@@ -181,13 +230,12 @@ let loginVM = new Vue({
             axios.post('/request/api', data)
                 .then(function (response) {
                     vm.loading = '';
-                    if (response.status === 201) {
+                    if (response.status === 201 || response.status === 200) {
                         vm.title = "Enter Verification Code";
                         vm.show_signup = 4;
                     }
                 })
                 .catch(function (err) {
-                    vm.loading = '';
                     vm.showError(err);
                 });
         },
@@ -205,11 +253,10 @@ let loginVM = new Vue({
             axios.post('/request/api', toPost)
                 .then(function (response) {
                     vm.loading = '';
-                    swal("Password Reset!", response.data.message, "success");
+                    swal("Password Reset!", response.data.message || "Instructions sent.", "success");
                     vm.showOTP();
                 })
                 .catch(function (err) {
-                    vm.loading = '';
                     vm.showError(err);
                 });
         }

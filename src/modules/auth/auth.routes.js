@@ -1,12 +1,12 @@
-// src/modules/auth/auth.routes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('./auth.controller');
 
+// API Routes called by your frontend JS (SweetAlert / Axios)
+router.post('/login/request-otp', authController.handleRequestOtp);
+router.post('/login/verify-otp', authController.handleVerifyOtp);
 
-// Notice these are relative to how we mount them in server.js
-router.get('/login', authController.renderLogin);
-router.post('/api/auth/login', authController.processLogin);
+// Logout Route
 router.get('/logout', authController.logout);
 
 module.exports = router;

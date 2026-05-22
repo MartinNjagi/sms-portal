@@ -133,6 +133,16 @@
             </div>
         </form>
 
+        <div v-if="show_signup === 5">
+        <div class="form-group">
+            <label>Verification Code</label>
+            <input type="text" class="form-control" v-model="OTPcode" placeholder="Enter 6-digit code">
+        </div>
+        <button class="btn btn-primary btn-block" @click="verifyLoginOTP" :disabled="loading === 'loading'">
+            Verify & Login
+        </button>
+        <a href="#" @click="showLogin" class="d-block mt-3 text-center">Back to Login</a>
+    </div>
     </div>
 </div>
 {% endblock %}

@@ -4,13 +4,27 @@ const axios = require('axios');
 // 1. Configure the Base Axios Instance
 // This ensures every request to the Go engine uses the same rules.
 const goEngineClient = axios.create({
-    baseURL: process.env.GO_ENGINE_URL, // e.g., 'http://10.0.0.5:8080' or 'http://localhost:8080'
+    baseURL: process.env.GO_ENGINE_URL|| 'http://localhost:4848',
     timeout: 10000, // 10 seconds. Don't let Node hang forever if Go is restarting!
     headers: {
         'Content-Type': 'application/json',
         // Internal security: Always authenticate internal microservice calls
         'Authorization': `Bearer ${process.env.INTERNAL_SERVICE_TOKEN}` 
     }
+});
+
+// Add this right after configuring goEngineClient
+
+goEngineClient.interceptors.request.use(config => {
+    // This safely combines your baseURL and the route path
+    const fullUrl = goEngineClient.getUri(config);
+    
+    console.log(`[Go Engine Outgoing] ${config.method.toUpperCase()} -> ${fullUrl}`);
+    
+    // Optional: If you want to see exactly what data Node is sending to Go
+    // console.log(`[Go Engine Payload]`, config.data);
+    
+    return config;
 });
 
 // 2. Centralized Error Handler
@@ -171,7 +185,40 @@ const getWalletHistory = async (token, targetClientId) => {
     }
 };
 
+/**
+ * Step 1: Request OTP (Validates password via Go Identity)
+ */
+const requestOtp = async (msisdn, password) => {
+    console.log("requestOTP stage");
+    try {
+        const response = await goEngineClient.post('/api/v1/login', {
+            msisdn,
+            password
+        });
+        return response.data; // e.g., { message: "2FA code sent" }
+    } catch (error) {
+        handleEngineError(error, 'requestOtp');
+    }
+};
+
+/**
+ * Step 2: Verify OTP and get JWT
+ */
+const verifyOtp = async (msisdn, code) => {
+    try {
+        const response = await goEngineClient.post('/api/v1/verify', {
+            msisdn,
+            code
+        });
+        // Go returns the JWT, User object, and Permissions here
+        return response.data; 
+    } catch (error) {
+        handleEngineError(error, 'verifyOtp');
+    }
+};
+
 module.exports = {
+    requestOtp, verifyOtp,
     getClientBalance,
     getRecentCampaigns,
     startBulkCampaign,
