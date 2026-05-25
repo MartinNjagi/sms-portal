@@ -16,11 +16,17 @@ app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURE NUNJUCKS ---
-nunjucks.configure(path.join(__dirname, 'app', 'views'), { 
+const env = nunjucks.configure(path.join(__dirname, 'app', 'views'), { 
     autoescape: true,
     express: app,
     watch: process.env.NODE_ENV !== 'production' 
+});// Register the custom filter
+env.addFilter('intcomma', function(val) {
+    if (val === null || val === undefined) return '';
+    return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 });
+
+
 app.set('view engine', 'njk'); // Tells Express that .njk is the default view engine
 // -----------------------------
 
@@ -44,7 +50,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:"],
-            mediaSrc: ["'self'", "data:"], // <--- Add this line to clear the last warning
+            mediaSrc: ["'self'", "data:"], 
             connectSrc: ["'self'", "ws:", "wss:"] 
         }
     }
@@ -81,7 +87,9 @@ app.use((req, res, next) => {
 
 // --- Feature Modules (BFF Routes) ---
 // Instead of one giant routes/index.js, we mount modular feature routes
+const { requireAuth } = require('./src/middlewares/requireAuth');
 const authController = require('./src/modules/auth/auth.controller');
+const dashboardController = require('./src/modules/dashboard/dashboard.controller');
 const authRoutes = require('./src/modules/auth/auth.routes');
 const dashboardRoutes = require('./src/modules/dashboard/dashboard.routes');
 const messageRoutes = require('./src/modules/messages/message.routes');
@@ -91,8 +99,9 @@ const settingsRoutes = require('./src/modules/settings/settings.routes');
 
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
+app.get('/dashboard', requireAuth, dashboardController.renderDashboard);
 app.use('/api/auth', authRoutes);             // Handles /login, /logout
-app.use('/dashboard', dashboardRoutes); // Handles /dashboard
+//app.use('/dashboard', dashboardRoutes); // Handles /dashboard
 app.use('/api/messages', messageRoutes); 
 app.use('/contacts', contactsRoutes);    
 app.use('/clients', clientRoutes);       

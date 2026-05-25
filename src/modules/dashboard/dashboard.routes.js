@@ -8,6 +8,6 @@ const { requireAuth } = require('../../middlewares/requireAuth');
 router.use(requireAuth); 
 
 // This will map to /dashboard/ when mounted
-router.get('/', dashboardController.renderDashboard);
+// router.get('/', dashboardController.renderDashboard);
 
 module.exports = router;

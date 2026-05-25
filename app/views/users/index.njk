@@ -1,0 +1,42 @@
+{% extends "../layout-v2.njk" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ title }}</h2>
+        
+        {% if targetClientId %}
+            <a href="/clients" class="btn btn-secondary">&larr; Back to Clients</a>
+        {% else %}
+            <button class="btn btn-primary">+ Invite User</button>
+        {% endif %}
+    </div>
+
+    <div class="card p-4">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teamMember in users %}
+                <tr>
+                    <td>{{ teamMember.full_name }}</td>
+                    <td>{{ teamMember.email }}</td>
+                    <td><span class="badge bg-dark">{{ teamMember.role }}</span></td>
+                    <td><span class="text-success">Active</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No users found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

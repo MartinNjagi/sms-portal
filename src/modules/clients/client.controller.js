@@ -8,10 +8,14 @@ clientController.renderIndex = async (req, res, next) => {
     try {
         const clients = await goEngineWrapper.getAllClients(req.token);
 
+        console.log("ResponseClintQuery",clients);
+        
+
         res.render('client/index.njk', {
             title: 'Client Management',
             alias: 'clients',
-            clients: clients
+            clients: clients,
+            user: req.user
         });
     } catch (error) {
         next(error);
@@ -27,6 +31,7 @@ clientController.renderWalletReport = async (req, res, next) => {
         res.render('client/wallet-report.njk', {
             title: 'Wallet History',
             alias: 'clients',
+            user: req.user, // <--- MUST INCLUDE THIS
             transactions: transactions
         });
     } catch (error) {
@@ -61,4 +66,45 @@ clientController.renderAdminWalletReport = async (req, res, next) => {
     }
 };
 
+clientController.viewMyTeam = async (req, res, next) => {
+    try {
+        // Extract the client ID securely from the JWT session data
+        const clientId = req.user.clientId; 
+
+        // Optional safety check: If a System Admin (Client ID 0) clicks this, 
+        // you might want to redirect them to the master client list instead.
+        // if (clientId === 1 || clientId === "1") {
+        //     return res.redirect('/clients'); 
+        // }
+
+        // Fetch users using the securely extracted ID
+        const users = await goEngineWrapper.getUsersByClient(req.token, clientId);
+        
+        // Reuse the exact same Nunjucks template! 
+        res.render('clients/users.njk', { 
+            title: 'My Team',
+            alias: 'my-team', // Used to highlight the sidebar menu
+            users, 
+            clientId,
+            user: req.user 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+clientController.viewClientUsers = async (req, res, next) => {
+    try {
+        const clientId = req.params.id;
+        const users = await goEngineWrapper.getUsersByClient(req.token, clientId);
+        
+        res.render('clients/users.njk', { 
+            users, 
+            clientId,
+            user: req.user 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = clientController;

@@ -29,6 +29,7 @@ const handleVerifyOtp = async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'Strict',
+        path: '/',
         maxAge: 24 * 60 * 60 * 1000 
     });
 
@@ -47,7 +48,7 @@ const handleVerifyOtp = async (req, res) => {
 // Destroys the session cookie to log the user out
 const logout = (req, res) => {
     res.clearCookie('access_token');
-    res.redirect('/auth/login');
+    res.redirect('/login');
 };
 
 module.exports = {

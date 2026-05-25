@@ -69,6 +69,9 @@
                 <li class="{% if alias == 'settings' %}active{% endif %}">
                     <a href="/settings">Settings & API</a>
                 </li>
+                <li class="{% if alias == 'my-team' %}active{% endif %}">
+                    <a href="/clients/my-team">My Team</a>
+                </li>
             </ul>
         </nav>
 
@@ -81,6 +84,8 @@
                     <a href="/logout" class="btn btn-sm btn-outline-danger">Sign Out</a>
                 </div>
             </div>
+    {% else %}
+    <div class="alert alert-danger">DEBUG: The 'user' object is missing from the template!</div>
     {% endif %}
 
     {% block content %}{% endblock %}

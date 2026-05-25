@@ -1,37 +1,33 @@
 // src/middlewares/requireAuth.js
-const jwt = require('jsonwebtoken'); // You might need to install jsonwebtoken
+const jwt = require('jsonwebtoken'); 
 
 const requireAuth = (req, res, next) => {
-    const token = req.cookies.session_token;
-
-    if (!token) {
-        return res.redirect('/login');
-    }
+    const token = req.cookies.access_token;
+    if (!token) return res.redirect('/auth/login');
 
     try {
-        // Decode the token (we don't need to verify the signature here if Go already did, 
-        // but it's safe to just decode it to get the role and ID).
-        const decoded = jwt.decode(token);
-        
-        req.token = token;
+        // Decode the JWT (use the same secret as your Go service)
+        // If you don't have the secret in Node, you can also fetch the 
+        // user profile from the Go service using an internal call here.
+        const decoded = jwt.decode(token); 
+
+        // Attach user data to req.user
         req.user = {
-            id: decoded.id,
-            role: decoded.role, // e.g., 'ADMIN' or 'CLIENT'
-            clientId: decoded.clientId
+            id: decoded.username || "System Admin",
+            clientId: decoded.client_id || "1",
+            role: "ADMIN" // Or map from decoded.permissions
         };
-
-        // Make the user object globally available to all Nunjucks views!
-        // This is a magic trick that saves you from passing it in every single render() call.
-        res.locals.user = req.user; 
-
+        
+        // Pass the token along for engine calls
+        req.token = token; 
+        
         next();
     } catch (err) {
-        res.clearCookie('session_token');
-        return res.redirect('/login');
+        console.error("Auth middleware error:", err);
+        res.redirect('/auth/login');
     }
 };
 
-// Helper middleware specifically for protecting Admin routes
 const requireAdmin = (req, res, next) => {
     if (req.user && req.user.role === 'ADMIN') {
         next();
