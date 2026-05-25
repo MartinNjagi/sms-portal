@@ -96,6 +96,7 @@ const messageRoutes = require('./src/modules/messages/message.routes');
 const clientRoutes = require('./src/modules/clients/client.routes');
 const contactsRoutes = require('./src/modules/contacts/contacts.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
+const billingRoutes = require('./src/modules/billing/billing.routes');
 
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
@@ -105,7 +106,8 @@ app.use('/api/auth', authRoutes);             // Handles /login, /logout
 app.use('/api/messages', messageRoutes); 
 app.use('/contacts', contactsRoutes);    
 app.use('/clients', clientRoutes);       
-app.use('/settings', settingsRoutes);    
+app.use('/settings', settingsRoutes);
+app.use('/accounts', billingRoutes)    
 
 // 👉 ADD THIS LINE RIGHT HERE:
 app.get('/', (req, res) => {

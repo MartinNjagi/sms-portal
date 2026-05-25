@@ -125,6 +125,22 @@ const getDeveloperSettings = async (token) => {
 // BILLING SERVICE CALLS
 // ==========================================
 
+const getWalletData = async (token, clientId) => {
+    console.log(`[Wrapper Debug] Fetching mock wallet data for client ${clientId}`);
+    
+    // WIP: Replace this return block with an actual axios call later
+    return {
+        balance: 4500.50,
+        currency: 'USD',
+        transactions: [
+            { id: 'TX-9942', date: '2026-05-24', type: 'Credit', amount: 1000.00, description: 'Stripe Top-Up', status: 'Completed' },
+            { id: 'TX-9941', date: '2026-05-22', type: 'Debit', amount: -45.50, description: 'Campaign: Q4 Promo', status: 'Completed' },
+            { id: 'TX-9940', date: '2026-05-20', type: 'Debit', amount: -12.00, description: 'Campaign: Test Run', status: 'Completed' },
+            { id: 'TX-9939', date: '2026-05-18', type: 'Credit', amount: 500.00, description: 'Bank Transfer', status: 'Processing' }
+        ]
+    };
+};
+
 const getClientBalance = async (clientId) => {
     try {
         const response = await clients.billing.get(`/api/v1/billing/balance/${clientId}`);
@@ -230,6 +246,7 @@ module.exports = {
     // Billing
     getClientBalance,
     getWalletHistory,
+    getWalletData,
     
     // SMS / Campaigns
     getDashboardStats,

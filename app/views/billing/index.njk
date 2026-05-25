@@ -1,0 +1,99 @@
+{% extends "../layout-v2.njk" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ title }}</h2>
+        <button class="btn btn-success px-4" data-bs-toggle="modal" data-bs-target="#topUpModal">
+            + Top Up Wallet
+        </button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary h-100 shadow-sm border-0">
+                <div class="card-body p-4">
+                    <h6 class="card-title text-uppercase text-white-50">Available Balance</h6>
+                    <h2 class="display-5 mb-0">{{ wallet.currency }} {{ wallet.balance | intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body p-4 d-flex align-items-center">
+                    <div>
+                        <h5 class="text-muted">Billing Plan: <span class="text-dark">Pay-As-You-Go</span></h5>
+                        <p class="mb-0 text-muted">Your account will stop sending messages if the balance reaches 0.00. Enable Auto-Recharge to prevent interruptions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 p-4">
+        <h4 class="mb-3">Transaction History</h4>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Transaction ID</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th class="text-end">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in wallet.transactions %}
+                    <tr>
+                        <td>{{ tx.date }}</td>
+                        <td class="text-muted font-monospace">{{ tx.id }}</td>
+                        <td>{{ tx.description }}</td>
+                        <td>
+                            {% if tx.type == 'Credit' %}
+                                <span class="badge bg-success bg-opacity-10 text-success">Credit</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger">Debit</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold {% if tx.amount > 0 %}text-success{% endif %}">
+                            {{ tx.amount | intcomma }}
+                        </td>
+                        <td>
+                            {% if tx.status == 'Completed' %}
+                                <span class="text-success"><small>&#9679;</small> Completed</span>
+                            {% else %}
+                                <span class="text-warning"><small>&#9679;</small> {{ tx.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No recent transactions found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="topUpModal" tabindex="-1" aria-labelledby="topUpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center pb-5">
+                <div class="mb-3">
+                    <span style="font-size: 3rem;">💳</span>
+                </div>
+                <h4 class="modal-title mb-2" id="topUpModalLabel">Payment Gateway Offline</h4>
+                <p class="text-muted">The Stripe/M-Pesa integration is currently being mapped out in the Go Billing service. Check back later!</p>
+                <button type="button" class="btn btn-secondary mt-3" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
