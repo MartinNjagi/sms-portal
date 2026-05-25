@@ -35,7 +35,10 @@
                             <button class="btn btn-sm btn-success" onclick="activateClient('{{ client.id }}')">Activate</button>
                         {% endif %}
                         
-                        <a href="/clients/{{ client.id }}/wallet" class="btn btn-sm btn-outline-secondary">View Ledger</a>
+                        <a href="/clients/{{ client.id }}/wallet" class="btn btn-sm btn-outline-secondary">
+                            View Ledger</a>
+                        <a href="/clients/{{ client.id }}/users" class="btn btn-sm btn-outline-primary">
+                            View Users</a>
                     </td>
                 </tr>
                 {% endfor %}

@@ -96,7 +96,7 @@ clientController.viewMyTeam = async (req, res, next) => {
 clientController.viewClientUsers = async (req, res, next) => {
     try {
         const clientId = req.params.id;
-        const users = await goEngineWrapper.getUsersByClient(req.token, clientId);
+        const users = await goEngineWrapper.getUsers(req.token, clientId);
         
         res.render('clients/users.njk', { 
             users, 
@@ -107,4 +107,6 @@ clientController.viewClientUsers = async (req, res, next) => {
         next(error);
     }
 };
+
+
 module.exports = clientController;

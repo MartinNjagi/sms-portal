@@ -91,14 +91,22 @@ const getAllClients = async (token) => {
     }
 };
 
-const getUsersByClient = async (token, clientId) => {
+const getUsers = async (token, clientId = null) => {
     try {
-        const response = await clients.identity.get(`/api/v1/clients/${clientId}/users`, {
+        let url = '/api/v1/users';
+        
+        // Build the query string if a clientId is passed
+        // The Go backend will securely decide whether to respect or ignore this
+        if (clientId) {
+            url += `?client_id=${clientId}`;
+        }
+
+        const response = await clients.identity.get(url, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         return response.data;
     } catch (error) {
-        handleEngineError(error, 'getUsersByClient');
+        handleEngineError(error, 'getUsers');
     }
 };
 
@@ -216,6 +224,7 @@ module.exports = {
     requestOtp, 
     verifyOtp,
     getAllClients,
+    getUsers,
     getDeveloperSettings,
     
     // Billing
