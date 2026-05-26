@@ -1,47 +1,168 @@
-{% extends "layout-v2.njk" %} 
+{% extends "../layout-v2.njk" %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ title }}</h1>
-    <p>Upload a CSV to launch a bulk campaign.</p>
-</div>
-
-<div class="campaign-card">
-    <div class="form-group">
-        <label>Campaign Name</label>
-        <input type="text" id="campaignName" placeholder="e.g., Q4 Promo" class="form-control">
+<div class="container-fluid">
+    <div class="mb-4">
+        <h2>{{ title }}</h2>
+        <p class="text-muted">Compose your message, select your audience, and track live delivery.</p>
     </div>
 
-    <div class="form-group">
-        <label>Sender ID</label>
-        <select id="senderId" class="form-control">
-            <option value="InfoSMS">InfoSMS</option>
-            <option value="PromoAlert">PromoAlert</option>
-        </select>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 p-4 mb-4">
+                
+                <h5 class="mb-3">1. Campaign Details</h5>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Campaign Name</label>
+                        <input type="text" id="campaignName" class="form-control" placeholder="e.g., Q4 Promo" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Sender ID</label>
+                        <select id="senderId" class="form-select">
+                            <option value="InfoSMS">InfoSMS</option>
+                            <option value="PromoAlert">PromoAlert</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-4 text-muted">
+
+                <h5 class="mb-3">2. Choose Audience</h5>
+                <div class="mb-3 bg-light p-3 rounded">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="audienceType" id="useCsv" value="csv" checked onchange="toggleAudience()">
+                        <label class="form-check-label fw-bold" for="useCsv">Upload CSV File</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="audienceType" id="useGroup" value="group" onchange="toggleAudience()">
+                        <label class="form-check-label fw-bold" for="useGroup">Use Saved Group</label>
+                    </div>
+                </div>
+
+                <div class="mb-4" id="csvUploader">
+                    <label for="csvFileInput" class="form-label">Upload Contacts</label>
+                    <input type="file" id="csvFileInput" accept=".csv" class="form-control border-primary">
+                    <small class="text-muted d-block mt-1">File must contain a column named <strong>"Phone"</strong> or <strong>"MSISDN"</strong>. Max size: 100MB.</small>
+                </div>
+
+                <div class="mb-4 d-none" id="groupSelector">
+                    <label class="form-label">Select Saved Group</label>
+                    <select class="form-select" id="groupId">
+                        <option value="" selected disabled>-- Select a Contact Group --</option>
+                        {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }} ({{ group.contactCount }} contacts)</option>
+                        {% else %}
+                            <option disabled>No groups available. Please create one in Address Book.</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <hr class="my-4 text-muted">
+
+                <h5 class="mb-3">3. Compose Message</h5>
+                
+                <div class="mb-3">
+                    <select class="form-select" id="templateSelector" onchange="applyTemplate()">
+                        <option value="">-- Start from Scratch or Select a Template --</option>
+                        {% for tpl in templates %}
+                            {% if tpl.status == 'Approved' %}
+                                <option value="{{ tpl.content }}">{{ tpl.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <textarea class="form-control font-monospace" id="messageBox" rows="5" placeholder="Type your message here..." required onkeyup="updateCharCount()"></textarea>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-muted">Dynamic variables (e.g., [Name]) supported for CSV uploads.</small>
+                        <small id="charCount" class="badge bg-secondary">0 chars | 1 SMS</small>
+                    </div>
+                </div>
+
+                <div id="uploadStatus" class="alert alert-info d-none fw-bold" role="alert"></div>
+
+                <div class="text-end">
+                    <button id="startUploadBtn" class="btn btn-primary px-5 py-2 fw-bold text-uppercase">Process & Send Campaign</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 p-4 bg-light mb-4">
+                <h6 class="fw-bold text-uppercase mb-3">Pre-Flight Checklist</h6>
+                <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.95em;">
+                    <li class="mb-2"><span class="text-success me-2">✔</span> Balance is sufficient</li>
+                    <li class="mb-2"><span class="text-success me-2">✔</span> Sender ID is verified</li>
+                    <li class="mb-2"><span class="text-warning me-2">⚠</span> Message avoids spam keywords</li>
+                    <li><span class="text-warning me-2">⚠</span> Phone numbers include country codes</li>
+                </ul>
+            </div>
+
+            <div id="liveProgressCard" class="card shadow-sm border-0 border-top border-primary border-4 p-4" style="display: none;">
+                <h5 class="fw-bold text-primary mb-3">
+                    <span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span>
+                    Live Broadcast
+                </h5>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted fw-bold">Successfully Sent</span>
+                    <h3 class="text-success mb-0" id="wsSentCount">0</h3>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted fw-bold">Failed / Rejected</span>
+                    <h3 class="text-danger mb-0" id="wsFailedCount">0</h3>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="form-group file-upload-zone">
-        <label for="csvFileInput">Upload Contacts (CSV)</label>
-        <input type="file" id="csvFileInput" accept=".csv" class="form-control">
-        <small>File must contain a column named "Phone" or "MSISDN". Max size: 100MB.</small>
-    </div>
-
-    <div id="uploadStatus" class="status-alert" style="font-weight: bold; margin: 15px 0;"></div>
-
-    <button id="startUploadBtn" class="btn btn-primary">Process & Send Campaign</button>
 </div>
-
-<div id="liveProgressCard" style="display: none; margin-top: 20px;">
-    <h3>Campaign Live Progress</h3>
-    <p>Sent: <span id="wsSentCount">0</span></p>
-    <p>Failed: <span id="wsFailedCount">0</span></p>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+    // Toggle between CSV Upload and Saved Group
+    function toggleAudience() {
+        const isCsv = document.getElementById('useCsv').checked;
+        document.getElementById('csvUploader').classList.toggle('d-none', !isCsv);
+        document.getElementById('groupSelector').classList.toggle('d-none', isCsv);
+    }
 
+    // Inject Template Text
+    function applyTemplate() {
+        const templateContent = document.getElementById('templateSelector').value;
+        const messageBox = document.getElementById('messageBox');
+        if (templateContent) {
+            messageBox.value = templateContent;
+            updateCharCount();
+        }
+    }
+
+    // Standard GSM-7 SMS Character Math
+    function updateCharCount() {
+        const text = document.getElementById('messageBox').value;
+        const count = text.length;
+        let smsCount = 1;
+        
+        if (count > 160) {
+            smsCount = Math.ceil(count / 153);
+        }
+        
+        document.getElementById('charCount').innerText = `${count} chars | ${smsCount} SMS`;
+        
+        if (smsCount > 1) {
+            document.getElementById('charCount').classList.replace('bg-secondary', 'bg-warning');
+            document.getElementById('charCount').classList.add('text-dark');
+        } else {
+            document.getElementById('charCount').classList.replace('bg-warning', 'bg-secondary');
+            document.getElementById('charCount').classList.remove('text-dark');
+        }
+    }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 
 <script src="/js/customjs/bulk-upload.js"></script>

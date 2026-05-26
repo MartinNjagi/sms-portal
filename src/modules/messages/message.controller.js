@@ -113,4 +113,56 @@ messageController.triggerGoEngine = async (req, res, next) => {
     }
 };
 
+messageController.renderTemplates = async (req, res, next) => {
+    try {
+        const clientId = req.user.clientId;
+        const templates = await goEngineWrapper.getTemplates(req.token, clientId);
+        
+        res.render('messages/templates.njk', { 
+            title: 'Message Templates',
+            alias: 'templates', // Will use this to highlight a new sidebar link
+            user: req.user,
+            templates
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+messageController.triggerCampaign = async (req, res, next) => {
+    try {
+        const { campaignName, senderId, messageContent, fileKey, groupId } = req.body;
+        
+        // Securely extract the Client ID from the JWT session
+        const clientId = req.user.clientId;
+
+        // Construct the payload for the Go Engine
+        const enginePayload = {
+            clientId,
+            campaignName,
+            senderId,
+            messageContent,
+            fileKey: fileKey || null, // Will be null if using a Group
+            groupId: groupId || null  // Will be null if using a CSV
+        };
+
+        // Forward the command to your Go microservice
+        const result = await goEngineWrapper.startCampaign(req.token, enginePayload);
+
+        // Respond to the browser so the Socket.io UI can start listening
+        res.status(200).json({
+            success: true,
+            message: "Campaign queued successfully.",
+            data: {
+                campaignId: result.campaignId, // Returned from Go
+                clientId: clientId
+            }
+        });
+
+    } catch (error) {
+        console.error("[BFF] Campaign Trigger Error:", error.message);
+        res.status(500).json({ error: error.message || 'Failed to trigger campaign.' });
+    }
+};
+
 module.exports = messageController;

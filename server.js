@@ -90,6 +90,7 @@ app.use((req, res, next) => {
 const { requireAuth } = require('./src/middlewares/requireAuth');
 const authController = require('./src/modules/auth/auth.controller');
 const dashboardController = require('./src/modules/dashboard/dashboard.controller');
+const contactsController = require('./src/modules/contacts/contacts.controller');
 const authRoutes = require('./src/modules/auth/auth.routes');
 const dashboardRoutes = require('./src/modules/dashboard/dashboard.routes');
 const messageRoutes = require('./src/modules/messages/message.routes');
@@ -101,9 +102,10 @@ const billingRoutes = require('./src/modules/billing/billing.routes');
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
 app.get('/dashboard', requireAuth, dashboardController.renderDashboard);
+app.get('/contacts', requireAuth, contactsController.renderAddressBook);
 app.use('/api/auth', authRoutes);             // Handles /login, /logout
 //app.use('/dashboard', dashboardRoutes); // Handles /dashboard
-app.use('/api/messages', messageRoutes); 
+app.use('/messages', messageRoutes); 
 app.use('/contacts', contactsRoutes);    
 app.use('/clients', clientRoutes);       
 app.use('/settings', settingsRoutes);

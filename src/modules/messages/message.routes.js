@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const messageController = require('./message.controller');
+const { requireAuth, requireAdmin } = require('../../middlewares/requireAuth');
 
 // Fast client-side validation middleware can be injected here later
 // router.post('/bulk', fastValidationMiddleware, messageController.initiateBulkSend);
@@ -14,5 +15,8 @@ router.get('/upload-url', messageController.getUploadUrl);
 
 // BFF Route: Tell Go Engine to start processing the uploaded file
 router.post('/process-campaign', messageController.triggerGoEngine);
+
+
+router.get('/templates', requireAuth, messageController.renderTemplates);
 
 module.exports = router;

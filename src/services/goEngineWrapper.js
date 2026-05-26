@@ -235,6 +235,30 @@ const getSenderIds = async (token) => {
     }
 };
 
+const getTemplates = async (token, clientId) => {
+    console.log(`[Wrapper Debug] Fetching templates for client ${clientId}`);
+    // WIP: Replace with actual Go SMS Engine API call
+    return [
+        { id: 'TPL-001', name: 'Payment Reminder', content: 'Dear [Name], your bill of [Amount] is due on [Date].', status: 'Approved' },
+        { id: 'TPL-002', name: 'OTP Verification', content: 'Your verification code is [Code]. Do not share this.', status: 'Approved' },
+        { id: 'TPL-003', name: 'Marketing Promo', content: 'Flash Sale! Get 20% off using code [PromoCode].', status: 'Pending' }
+    ];
+};
+
+const startCampaign = async (token, payload) => {
+    try {
+        // This hits your Go service to actually queue the SMS batch
+        const response = await clients.identity.post('/api/v1/campaigns/launch', payload, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        // Expecting Go to return something like { campaignId: "CMP-998" }
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'startCampaign');
+    }
+};
+
 module.exports = {
     // Identity
     requestOtp, 
@@ -255,6 +279,7 @@ module.exports = {
     getContactGroups,
     createContactGroup,
     getSenderIds,
+    getTemplates,startCampaign,
     
     // Direct Access to Clients (if needed elsewhere)
     identity: clients.identity,

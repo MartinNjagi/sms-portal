@@ -35,5 +35,20 @@ contactsController.createGroup = async (req, res, next) => {
         res.status(500).json({ error: error.message });
     }
 };
+contactsController.renderAddressBook = async (req, res, next) => {
+    try {
+        // Fetch the contact groups for the logged-in user
+        // (This relies on the Go backend having an endpoint for this)
+        const groups = await goEngineWrapper.getContactGroups(req.token) || [];
 
+        res.render('contacts/index.njk', {
+            title: 'Address Book',
+            alias: 'contacts', // Highlights the sidebar
+            user: req.user,
+            groups
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = contactsController;
