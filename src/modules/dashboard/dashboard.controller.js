@@ -4,15 +4,12 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 const dashboardController = {};
 
 dashboardController.renderDashboard = async (req, res, next) => {
-    console.log("!!! CONTROLLER HIT !!!"); // Does this show in terminal?
     try {
         // Fetch the user's dashboard stats from Go, passing their specific token
         // so Go knows exactly whose data to return.
-        const dashboardData = await goEngineWrapper.getDashboardStats(req.token);
+        const dashboardData = await goEngineWrapper.getDashboardStats(req);
         console.log("renderDashboard");
-        
-        console.log(dashboardData.summary);
-        
+                
         // Render the Nunjucks view with the stitched data
         res.render('dashboard/index.njk', {
             title: 'Overview',

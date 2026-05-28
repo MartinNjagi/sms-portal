@@ -6,7 +6,7 @@ const renderWallet = async (req, res, next) => {
         const clientId = req.user.clientId;
         
         // Fetch the mock wallet data using the logged-in user's client ID
-        const walletData = await goEngineWrapper.getWalletData(req.token, clientId);
+        const walletData = await goEngineWrapper.getWalletData(req);
         
         res.render('billing/index.njk', { 
             title: 'My Wallet & Billing',

@@ -9,7 +9,7 @@ const renderLogin = (req, res) => {
 const handleRequestOtp = async (req, res) => {
     try {
         const { msisdn, password } = req.body;
-        const result = await goEngineWrapper.requestOtp(msisdn, password);
+        const result = await goEngineWrapper.requestOtp(msisdn, password,req);
         
         // Tell the frontend to show the OTP input field
         res.status(200).json(result); 
@@ -22,7 +22,7 @@ const handleRequestOtp = async (req, res) => {
 const handleVerifyOtp = async (req, res) => {
     try {
         const { msisdn, code } = req.body;
-        const result = await goEngineWrapper.verifyOtp(msisdn, code);
+        const result = await goEngineWrapper.verifyOtp(msisdn, code,req);
 
         // 1. The BFF catches result.token and HIDES it inside an encrypted cookie
     res.cookie('access_token', result.token, {

@@ -23,5 +23,13 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
-  }
+  },
+  "bin": "server.js",
+  "pkg": {
+    "assets": [
+      "app/views/**/*",
+      "public/**/*"
+    ],
+    "targets": ["node22-linux-x64"]
+}
 }

@@ -28,7 +28,7 @@ contactsController.createGroup = async (req, res, next) => {
         }
 
         // Pass the request to Go
-        const newGroup = await goEngineWrapper.createContactGroup(req.token, { name: groupName, description });
+        const newGroup = await goEngineWrapper.createContactGroup({ name: groupName, description });
 
         res.status(201).json({ success: true, data: newGroup });
     } catch (error) {
@@ -39,7 +39,7 @@ contactsController.renderAddressBook = async (req, res, next) => {
     try {
         // Fetch the contact groups for the logged-in user
         // (This relies on the Go backend having an endpoint for this)
-        const groups = await goEngineWrapper.getContactGroups(req.token) || [];
+        const groups = await goEngineWrapper.getContactGroups(req) || [];
 
         res.render('contacts/index.njk', {
             title: 'Address Book',

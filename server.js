@@ -16,7 +16,7 @@ app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURE NUNJUCKS ---
-const env = nunjucks.configure(path.join(__dirname, 'app', 'views'), { 
+const env = nunjucks.configure(path.join(__dirname, 'views'), { 
     autoescape: true,
     express: app,
     watch: process.env.NODE_ENV !== 'production' 

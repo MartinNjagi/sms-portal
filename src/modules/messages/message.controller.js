@@ -14,8 +14,8 @@ messageController.getMessageDashboardData = async (req, res, next) => {
     try {
         // In a BFF, we aggregate data from multiple services for the initial load
         const [accountStatus, recentCampaigns] = await Promise.all([
-            goEngineWrapper.getClientBalance(req.user.id),
-            goEngineWrapper.getRecentCampaigns(req.user.id, { limit: 5 })
+            goEngineWrapper.getClientBalance(req),
+            goEngineWrapper.getRecentCampaigns(req, { limit: 5 })
         ]);
 
         res.status(200).json({
@@ -48,7 +48,7 @@ messageController.getUploadUrl = async (req, res, next) => {
         }
 
         // Example: Block if user doesn't have enough balance for estimated rows
-        const account = await goEngineWrapper.getClientBalance(req.user.id);
+        const account = await goEngineWrapper.getClientBalance(req);
         if (account.balance < estimatedRows) {
              return res.status(402).json({ error: 'Insufficient balance for this campaign size.' });
         }
@@ -94,7 +94,7 @@ messageController.triggerGoEngine = async (req, res, next) => {
             senderId,
             s3FileKey: fileKey,
             callbackRoom: `campaign_${req.user.clientId}` // Tells Go where to send WebSockets
-        });
+        }, req);
 
         // --- RESPOND TO FRONTEND ---
         // We reply immediately. The frontend will now listen on WebSockets for DLRs and progress.
@@ -147,7 +147,7 @@ messageController.triggerCampaign = async (req, res, next) => {
         };
 
         // Forward the command to your Go microservice
-        const result = await goEngineWrapper.startCampaign(req.token, enginePayload);
+        const result = await goEngineWrapper.startCampaign(enginePayload,req);
 
         // Respond to the browser so the Socket.io UI can start listening
         res.status(200).json({

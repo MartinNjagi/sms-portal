@@ -5,7 +5,7 @@ const viewMyTeam = async (req, res, next) => {
     try {
         // We pass 'null' for the filter. 
         // The Go Engine will automatically read the user's JWT and return ONLY their team.
-        const users = await goEngineWrapper.getUsers(req.token, null);
+        const users = await goEngineWrapper.getUsers(req, null);
         
         res.render('users/index.njk', { 
             title: 'My Team',
@@ -24,7 +24,7 @@ const viewClientUsers = async (req, res, next) => {
         
         // Pass the target ID. If a malicious customer tries to guess this URL,
         // the Go Engine's security override will block them or ignore the ID.
-        const users = await goEngineWrapper.getUsers(req.token, targetClientId);
+        const users = await goEngineWrapper.getUsers(req, targetClientId);
         
         res.render('users/index.njk', { 
             title: `Managing Users (Client #${targetClientId})`,

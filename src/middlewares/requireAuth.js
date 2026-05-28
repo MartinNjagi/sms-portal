@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 const requireAuth = (req, res, next) => {
     const token = req.cookies.access_token;
-    if (!token) return res.redirect('/auth/login');
+    if (!token) return res.redirect('/login');
 
     try {
         // Decode the JWT (use the same secret as your Go service)
@@ -24,7 +24,7 @@ const requireAuth = (req, res, next) => {
         next();
     } catch (err) {
         console.error("Auth middleware error:", err);
-        res.redirect('/auth/login');
+        res.redirect('/login');
     }
 };
 

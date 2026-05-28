@@ -10,7 +10,7 @@ accountController.renderMyBilling = async (req, res, next) => {
         // comes directly from the decoded HttpOnly secure cookie/token.
         const myId = req.user.clientId; 
         
-        const transactions = await goEngineWrapper.getWalletHistory(req.token, myId);
+        const transactions = await goEngineWrapper.getWalletHistory(req.token, myId,req);
 
         res.render('account/billing.njk', {
             title: 'My Billing & Invoices',

@@ -7,7 +7,7 @@ settingsController.renderSettingsPage = async (req, res, next) => {
     try {
         // BFF Pattern: Fetch multiple resources concurrently to keep page load fast
         const [senderIds, devSettings] = await Promise.all([
-            goEngineWrapper.getSenderIds(req.token),
+            goEngineWrapper.getSenderIds(req),
             goEngineWrapper.getDeveloperSettings(req.token)
         ]);
 
