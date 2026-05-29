@@ -1,0 +1,114 @@
+/*public/css/layout.css
+*/
+:root {
+    --sidebar-bg: #1e293b; /* Modern slate dark */
+    --sidebar-hover: #334155;
+    --sidebar-active: #0d6efd;
+    --sidebar-text: #cbd5e1;
+    --body-bg: #f8fafc;
+}
+
+body { 
+    background-color: var(--body-bg); 
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+    overflow-x: hidden;
+}
+
+/* Layout Structure */
+.wrapper { display: flex; width: 100%; align-items: stretch; }
+
+/* Sidebar Styling */
+#sidebar { 
+    min-width: 260px; 
+    max-width: 260px; 
+    background: var(--sidebar-bg); 
+    color: #fff; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    z-index: 1040;
+    overflow-y: auto;
+}
+
+#sidebar .sidebar-header { 
+    padding: 24px 20px; 
+    background: rgba(0,0,0,0.15); 
+    border-bottom: 1px solid rgba(255,255,255,0.05); 
+}
+
+#sidebar ul.components { padding: 15px 0; margin-bottom: 0; }
+
+#sidebar ul li a { 
+    padding: 12px 20px; 
+    font-size: 0.95em; 
+    display: flex; 
+    align-items: center;
+    color: var(--sidebar-text); 
+    text-decoration: none; 
+    transition: 0.2s;
+}
+
+#sidebar ul li a i { margin-right: 12px; font-size: 1.1em; }
+
+#sidebar ul li a:hover { 
+    color: #fff; 
+    background: var(--sidebar-hover); 
+    border-left: 3px solid transparent;
+}
+
+#sidebar ul li.active a { 
+    color: #fff; 
+    background: var(--sidebar-active); 
+    border-left: 3px solid #60a5fa;
+    font-weight: 500;
+}
+
+#sidebar ul li.nav-category { 
+    padding: 20px 20px 8px; 
+    font-size: 0.75em; 
+    letter-spacing: 1px;
+    text-transform: uppercase; 
+    color: #64748b; 
+    font-weight: 700; 
+}
+
+/* Main Content Styling */
+#content { 
+    width: 100%; 
+    padding: 20px 30px; 
+    min-height: 100vh; 
+    transition: all 0.3s; 
+}
+
+.top-nav { 
+    background: #fff; 
+    padding: 15px 25px; 
+    border-radius: 10px; 
+    margin-bottom: 30px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+.card { 
+    border-radius: 10px; 
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02); 
+    border: 1px solid rgba(0,0,0,0.05); 
+    margin-bottom: 20px; 
+}
+
+/* Mobile Responsiveness */
+#sidebarCollapse { display: none; }
+
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -260px;
+        position: fixed;
+    }
+    #sidebar.active { margin-left: 0; box-shadow: 4px 0 15px rgba(0,0,0,0.1); }
+    #sidebarCollapse { display: block; }
+    #content { padding: 15px; }
+    .top-nav { padding: 12px 15px; margin-bottom: 20px; }
+}

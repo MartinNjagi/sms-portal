@@ -6,21 +6,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const createUserModal = document.getElementById('createUserModal');
     
     if (createUserModal) {
-        // Vanilla JS equivalent for Bootstrap 5 modal event
+        // Bootstrap 5 standard event listener
         createUserModal.addEventListener('show.bs.modal', function () {
             const roleSelect = document.getElementById('role_id');
             const clientIdInput = document.getElementById('client_id');
             
-            if (!clientIdInput) return; // Exit if not on the user page
+            if (!clientIdInput) return;
             
             const clientId = clientIdInput.value;
 
-            // Hit your Node proxy, which forwards to your Go identity service
-            axios.post('/request/api', {
-                service: 'identity',
-                route: 'roles', 
-                client_id: parseInt(clientId) 
-            })
+            // Hit your Node proxy
+            axios.get(`/users/api/roles?client_id=${clientId}`)
             .then(response => {
                 roleSelect.innerHTML = '<option value="">Select a role...</option>';
                 
@@ -55,20 +51,18 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
 
             const payload = {
-                service: 'identity',
-                route: 'user/create', 
-                client_id: parseInt(document.getElementById('client_id').value),
-                name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
-                role_id: parseInt(document.getElementById('role_id').value),
-                password: document.getElementById('password').value
-            };
+            client_id: parseInt(document.getElementById('client_id').value),
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            role_id: parseInt(document.getElementById('role_id').value),
+            password: document.getElementById('password').value
+        };
 
-            axios.post('/request/api', payload)
+        axios.post('/users/api/create', payload)
             .then(response => {
                 alert('User created successfully!');
                 
-                // Vanilla JS equivalent to hide Bootstrap 5 modal
+                // Bootstrap 5 way to hide a modal programmatically
                 const modalInstance = bootstrap.Modal.getInstance(createUserModal);
                 if (modalInstance) {
                     modalInstance.hide();

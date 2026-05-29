@@ -6,92 +6,84 @@
     <title>{% if title %}{{ title }} - {% endif %}SMS Platform</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
-
-    <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        /* Layout Structure */
-        .wrapper { display: flex; width: 100%; align-items: stretch; min-height: 100vh; }
-        
-        /* Sidebar Styling */
-        #sidebar { min-width: 250px; max-width: 250px; background: #343a40; color: #fff; transition: all 0.3s; }
-        #sidebar .sidebar-header { padding: 20px; background: #2b3035; border-bottom: 1px solid #475058; }
-        #sidebar ul.components { padding: 20px 0; }
-        #sidebar ul li a { padding: 12px 20px; font-size: 1.1em; display: block; color: #d1d8e0; text-decoration: none; }
-        #sidebar ul li a:hover, #sidebar ul li.active a { color: #fff; background: #0d6efd; }
-        #sidebar ul li.nav-category { padding: 15px 20px 5px; font-size: 0.85em; text-transform: uppercase; color: #6c757d; font-weight: bold; }
-
-        /* Main Content Styling */
-        #content { width: 100%; padding: 20px; min-height: 100vh; transition: all 0.3s; }
-        .top-nav { background: #fff; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; }
-        
-        /* Utilities */
-        .card { border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: none; margin-bottom: 20px; }
-    </style>
+    
+    <link rel="stylesheet" href="/css/layout.css">
 </head>
 <body>
 
     {% if user %}
     <div class="wrapper">
+        
         <nav id="sidebar">
             <div class="sidebar-header">
-                <h4 class="mb-0">SMS Platform</h4>
-                <small class="text-muted">Workspace: {{ user.clientId }}</small>
+                <h5 class="mb-1 fw-bold text-white"><i class="bi bi-chat-square-dots me-2 text-primary"></i>SMS Platform</h5>
+                <small class="text-muted d-block" style="font-size: 0.8em;">Workspace: Client #{{ user.client_id }}</small>
             </div>
 
             <ul class="list-unstyled components">
                 <li class="nav-category">Main</li>
                 <li class="{% if alias == 'dashboard' %}active{% endif %}">
-                    <a href="/dashboard">Overview</a>
+                    <a href="/dashboard"><i class="bi bi-grid"></i> Overview</a>
                 </li>
                 
                 <li class="nav-category">Messaging</li>
                 <li class="{% if alias == 'message' %}active{% endif %}">
-                    <a href="/messages/bulk">Bulk SMS</a>
+                    <a href="/messages/bulk"><i class="bi bi-send"></i> Bulk SMS</a>
                 </li>
                 <li class="{% if alias == 'contacts' %}active{% endif %}">
-                    <a href="/contacts">Address Book</a>
+                    <a href="/contacts"><i class="bi bi-person-lines-fill"></i> Address Book</a>
                 </li>
 
                 {% if user.role == 'ADMIN' %}
-                <li class="nav-category text-warning">Admin Overwatch</li>
+                <li class="nav-category text-warning"><i class="bi bi-shield-lock me-1"></i> Admin Overwatch</li>
                 <li class="{% if alias == 'clients' %}active{% endif %}">
-                    <a href="/clients">Client Management</a>
+                    <a href="/clients"><i class="bi bi-buildings"></i> Client Management</a>
                 </li>
                 {% endif %}
 
                 <li class="nav-category">Account</li>
                 <li class="{% if alias == 'billing' %}active{% endif %}">
-                    <a href="/accounts/billing">My Wallet & Billing</a>
-                </li>
-                <li class="{% if alias == 'settings' %}active{% endif %}">
-                    <a href="/settings">Settings & API</a>
+                    <a href="/accounts/billing"><i class="bi bi-wallet2"></i> My Wallet & Billing</a>
                 </li>
                 <li class="{% if alias == 'my-team' %}active{% endif %}">
-                    <a href="/clients/my-team">My Team</a>
+                    <a href="/clients/my-team"><i class="bi bi-people"></i> My Team</a>
+                </li>
+                <li class="{% if alias == 'roles' %}active{% endif %}">
+                    <a href="/roles"><i class="bi bi-person-badge"></i> Roles & Permissions</a>
+                </li>
+                <li class="{% if alias == 'settings' %}active{% endif %}">
+                    <a href="/settings"><i class="bi bi-gear"></i> Settings & API</a>
                 </li>
             </ul>
         </nav>
 
         <div id="content">
+            
             <div class="top-nav">
-                <div>
-                    <span class="text-muted">Welcome back, <strong>{{ user.id }}</strong></span>
+                <div class="d-flex align-items-center">
+                    <button type="button" id="sidebarCollapse" class="btn btn-light shadow-sm me-3">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+                    <span class="text-secondary">Welcome back, <strong class="text-dark">{{ user.username }}</strong></span>
                 </div>
                 <div>
-                    <a href="/logout" class="btn btn-sm btn-outline-danger">Sign Out</a>
+                    <a href="/logout" class="btn btn-sm btn-outline-danger"><i class="bi bi-box-arrow-right me-1"></i> Sign Out</a>
                 </div>
             </div>
     {% else %}
-    <div class="alert alert-danger">DEBUG: The 'user' object is missing from the template!</div>
+    <div class="container mt-5">
+        <div class="alert alert-danger shadow-sm border-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>DEBUG: The 'user' object is missing from the template!</div>
+    </div>
     {% endif %}
 
-    {% block content %}{% endblock %}
+            {% block content %}{% endblock %}
 
     {% if user %}
-        </div> </div> {% endif %}
+        </div> 
+    </div> 
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -104,6 +96,18 @@
             const data = localStorage.getItem(key); 
             return data ? JSON.parse(data) : null; 
         }
+
+        // Mobile Sidebar Toggle Logic
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarBtn = document.getElementById('sidebarCollapse');
+            const sidebar = document.getElementById('sidebar');
+            
+            if (sidebarBtn && sidebar) {
+                sidebarBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('active');
+                });
+            }
+        });
     </script>
 
     {% block scripts %}{% endblock %}

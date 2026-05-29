@@ -86,10 +86,14 @@ let loginVM = new Vue({
                 .then(function (response) {
                     vm.loading = "";
                     // Password is correct, SMS triggered. Show the OTP input view.
-                    vm.showLoginOTP(); 
-                    console.log("After Login");
-                    
-                    swal("OTP Sent", "Please check your phone for the verification code.", "success");
+                    vm.showLoginOTP();                     
+                    swal({
+                    title: "OTP Sent",
+                    text: "Please check your phone for the verification code.",
+                    icon: "success",
+                    timer: 3000, // Time in milliseconds (3 seconds)
+                    buttons: false // Optional: hides the "OK" button
+                    });
                 })
                 .catch(function (err) {
                     vm.showError(err);
@@ -111,7 +115,6 @@ let loginVM = new Vue({
             let vm = this;
             vm.loading = "loading";
 
-            // public/js/customjs/login.js
             axios.post('/api/auth/login/verify-otp', data)
                 .then(function (response) {
                     // You can save the user & permissions to localStorage or Vuex here
@@ -127,58 +130,6 @@ let loginVM = new Vue({
         },
 
         // --- OTHER ACCOUNT FLOWS ---
-        otp: function () {
-            if (this.loading) return;
-            if (!this.code) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
-            if (this.password !== this.password1) { swal("Missing Fields", "Mismatching password", "error"); return; }
-            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
-            
-            let data = {
-                service: 'identity',
-                msisdn: this.msisdn,
-                password: this.password,
-                verification_code: this.code,
-                route: 'auth/user/password/reset'
-            };
-            let vm = this;
-            vm.loading = "loading";
-
-            axios.post('/request/api', data) 
-                .then(function (response) {
-                    vm.loading = "";
-                    swal("Success", "Password reset successfully. Please log in.", "success");
-                    vm.showLogin();
-                })
-                .catch(function (err) {
-                    vm.showError(err);
-                });
-        },
-        verificationOtp: function () {
-            if (this.loading) return;
-            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
-            if (!this.OTPcode) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
-            
-            let data = {
-                service: 'identity',
-                verification_code: this.OTPcode,
-                msisdn: this.msisdn,
-                route: 'auth/user/verify'
-            };
-            let vm = this;
-            vm.loading = "loading";
-
-            axios.post('/request/api', data) 
-                .then(function (response) {
-                    vm.loading = "";
-                    if (response.status === 201 || response.status === 200) {
-                        swal("Success", "Account Verified! Please log in.", "success");
-                        vm.showLogin();
-                    }
-                })
-                .catch(function (err) {
-                    vm.showError(err);
-                });
-        },
         resendCode: function () {
             if (this.loading) return;
             if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
@@ -194,46 +145,6 @@ let loginVM = new Vue({
                 .then(function (response) {
                     vm.loading = "";
                     swal("Code Sent", "A new code has been sent to your phone.", "success");
-                })
-                .catch(function (err) {
-                    vm.showError(err);
-                });
-        },
-        signup: function (ele) {
-            if(ele) ele.preventDefault();
-            
-            if (!this.fullname) { swal("Missing Fields", "Missing Full Name", "error"); return; }
-            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
-            if (!this.email) { swal("Missing Fields", "Missing Email", "error"); return; }
-            if (!this.company) { swal("Missing Fields", "Missing Company Name", "error"); return; }
-            if (!this.terms) { swal("Missing Fields", "You must accept terms and conditions to proceed", "error"); return; }
-            if (this.password.length < 6) { swal("Missing Fields", "Password must have at least 6 characters", "error"); return; }
-            if (this.password !== this.password1) { swal("Missing Fields", "Mismatching password", "error"); return; }
-
-            let visitor = typeof getObject === "function" ? getObject('visitor') : null;
-            this.country_code = visitor ? visitor.countryCode : 'ke';
-            
-            let data = {
-                service: 'identity',
-                full_name: this.fullname,
-                msisdn: this.msisdn,
-                email: this.email,
-                company_name: this.company,
-                country_code: this.country_code,
-                password: this.password,
-                route: 'auth/signup'
-            };
-            
-            let vm = this;
-            vm.loading = 'loading';
-
-            axios.post('/request/api', data)
-                .then(function (response) {
-                    vm.loading = '';
-                    if (response.status === 201 || response.status === 200) {
-                        vm.title = "Enter Verification Code";
-                        vm.show_signup = 4;
-                    }
                 })
                 .catch(function (err) {
                     vm.showError(err);

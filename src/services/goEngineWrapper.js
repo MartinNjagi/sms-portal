@@ -55,23 +55,58 @@ const extractIP = (req) =>
  * The Go middleware recomputes this and rejects any request where it doesn't match.
  * Cost: <1ms even for large payloads — negligible.
  */
-const signPayload = (body = '') =>
-  crypto
+const signPayload = (body = '') => {
+  if (typeof body !== 'string') {
+    throw new TypeError('HMAC body must be a string');
+  }
+
+  if (!process.env.INTERNAL_SERVICE_TOKEN) {
+    throw new Error('INTERNAL_SERVICE_TOKEN missing');
+  }
+
+  return crypto
     .createHmac('sha256', process.env.INTERNAL_SERVICE_TOKEN)
     .update(body)
-    .digest('hex')
+    .digest('hex');
+};
 
 const withContext = (req, extraHeaders = {}, payload = null) => {
-  const body = payload ? JSON.stringify(payload) : ''
+  let body = '';
 
-  return {
-    headers: {
-      'X-Signature': signPayload(body),
-      ...(extractIP(req) && { 'X-Real-IP': extractIP(req) }),
-      ...extraHeaders,
-    },
+  try {
+    body = payload ? JSON.stringify(payload) : '';
+  } catch (err) {
+    throw new Error(`Failed to serialize request payload for HMAC signing: ${err.message}`);
   }
-}
+
+  const signature = signPayload(body);
+
+  if (!signature) {
+    throw new Error('Failed to generate HMAC signature');
+  }
+
+  const headers = {
+    'X-Signature': signature,
+    ...(extractIP(req) && { 'X-Real-IP': extractIP(req) }),
+    ...extraHeaders,
+  };
+
+  const auth = headers.Authorization;
+
+  if (auth) {
+    if (!auth.startsWith('Bearer ')) {
+      throw new Error('Malformed Authorization header');
+    }
+
+    const token = auth.slice(7).trim();
+
+    if (!token || token === 'undefined' || token === 'null') {
+      throw new Error('Invalid bearer token');
+    }
+  }
+
+  return { headers };
+};
 /**
  * Builds the header block for every internal service call.
  *
@@ -85,6 +120,17 @@ const withContext = (req, extraHeaders = {}, payload = null) => {
  *   X-Real-IP    → forwarded original client IP for audit logging in Go
  *   Authorization → user JWT, forwarded only on user-context routes
  */
+
+const getJWT = (req) => {
+  return (
+    req.token ||
+    req.session?.token ||
+    req.session?.user?.token ||
+    req.headers.authorization?.replace(/^Bearer\s+/i, '')
+  );
+};
+
+
 
 // =============================================================================
 // 4. CENTRALIZED ERROR HANDLER
@@ -147,6 +193,19 @@ const verifyOtp = async (msisdn, code, req) => {
         handleEngineError(error, 'verifyOtp');
     }
 };
+const createUser = async (req) => {
+    const payload = req.body;
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/users',
+            payload,
+            withContext(req, {}, payload),
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'verifyOtp');
+    }
+};
 
 const getAllClients = async (req) => {
 
@@ -158,6 +217,41 @@ const getAllClients = async (req) => {
         return response.data;
     } catch (error) {
         handleEngineError(error, 'getAllClients');
+    }
+};
+
+const getRoles = async (req) => {
+    try {
+        const token = getJWT(req);
+        if (!req.token) {
+            throw new Error('Missing JWT token on request context');
+        }
+
+        const response = await clients.identity.get(
+            '/api/v1/roles',
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            }),
+        );
+
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'getRoles');
+    }
+};
+
+const getRolePermissions = async (req, roleId) => {
+    try {
+        const response = await clients.identity.get(
+            '/api/v1/roles/${roleId}/permissions',
+            withContext(req, {
+                Authorization: `Bearer ${req.token}`,
+            }),
+        );
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching permissions for role ${roleId} from Go Engine:`, error.message);
+        throw error;
     }
 };
 
@@ -350,6 +444,9 @@ module.exports = {
     verifyOtp,
     getAllClients,
     getUsers,
+    getRoles,
+    getRolePermissions,
+    createUser,
     getDeveloperSettings,
 
     // Billing

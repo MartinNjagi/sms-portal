@@ -1,15 +1,14 @@
 // src/modules/users/user.controller.js
 const goEngineWrapper = require('../../services/goEngineWrapper');
 
+// --- PAGE RENDERING METHODS ---
+
 const viewMyTeam = async (req, res, next) => {
     try {
-        // We pass 'null' for the filter. 
-        // The Go Engine will automatically read the user's JWT and return ONLY their team.
         const users = await goEngineWrapper.getUsers(req, null);
-        
         res.render('users/index.njk', { 
             title: 'My Team',
-            alias: 'my-team', // Highlights the sidebar
+            alias: 'my-team',
             users,
             user: req.user
         });
@@ -21,24 +20,48 @@ const viewMyTeam = async (req, res, next) => {
 const viewClientUsers = async (req, res, next) => {
     try {
         const targetClientId = req.params.id;
-        
-        // Pass the target ID. If a malicious customer tries to guess this URL,
-        // the Go Engine's security override will block them or ignore the ID.
         const users = await goEngineWrapper.getUsers(req, targetClientId);
-        
         res.render('users/index.njk', { 
             title: `Managing Users (Client #${targetClientId})`,
-            alias: 'clients', // Keeps the "Client Management" sidebar highlighted
+            alias: 'clients',
             users,
             user: req.user,
-            targetClientId // Optional: pass to view to show a "Back to Clients" button
+            targetClientId 
         });
     } catch (error) {
         next(error);
     }
 };
 
+// --- API METHODS (For Axios calls) ---
+
+const getRoles = async (req, res, next) => {
+
+    try {
+        const roles = await goEngineWrapper.getRoles(req); 
+        
+        res.json(roles);
+    } catch (error) {
+        console.error("Error fetching roles:", error);
+        res.status(500).json({ message: "Failed to fetch roles" });
+    }
+};
+
+const createUser = async (req, res, next) => {
+    try {
+        // req.body contains the name, email, role_id, password, client_id
+        const newUser = await goEngineWrapper.createUser(req);
+        
+        res.status(201).json({ message: "User created successfully", user: newUser });
+    } catch (error) {
+        console.error("Error creating user:", error);
+        res.status(500).json({ message: error.message || "Failed to create user" });
+    }
+};
+
 module.exports = {
     viewMyTeam,
-    viewClientUsers
+    viewClientUsers,
+    getRoles,
+    createUser
 };

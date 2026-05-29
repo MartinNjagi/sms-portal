@@ -96,6 +96,8 @@ const dashboardRoutes = require('./src/modules/dashboard/dashboard.routes');
 const messageRoutes = require('./src/modules/messages/message.routes');
 const clientRoutes = require('./src/modules/clients/client.routes');
 const contactsRoutes = require('./src/modules/contacts/contacts.routes');
+const userRoutes = require('./src/modules/users/user.routes');
+const roleRoutes = require('./src/modules/roles/role.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 const billingRoutes = require('./src/modules/billing/billing.routes');
 
@@ -109,7 +111,9 @@ app.use('/messages', messageRoutes);
 app.use('/contacts', contactsRoutes);    
 app.use('/clients', clientRoutes);       
 app.use('/settings', settingsRoutes);
-app.use('/accounts', billingRoutes)    
+app.use('/accounts', billingRoutes);
+app.use('/users', userRoutes);   
+app.use('/roles', roleRoutes);   
 
 // 👉 ADD THIS LINE RIGHT HERE:
 app.get('/', (req, res) => {
