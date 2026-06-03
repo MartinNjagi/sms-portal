@@ -7,9 +7,9 @@ const { requireAuth, requireAdmin } = require('../../middlewares/requireAuth');
 
 router.use(requireAuth, requireAdmin);
 
-router.get('/', clientController.renderIndex);
-router.get('/:clientId/wallet', clientController.renderWalletReport); // New reporting route
-router.post('/api/:clientId/activate', clientController.activateClient);
+router.get('/', requireAuth,clientController.renderIndex);
+router.get('/:clientId/wallet', requireAuth,clientController.renderWalletReport); // New reporting route
+router.post('/api/:clientId/activate',requireAuth, requireAdmin,clientController.activateClient);
 router.get('/my-team', requireAuth, userController.viewMyTeam);
 router.get('/:id/users', requireAuth, userController.viewClientUsers);
 module.exports = router;

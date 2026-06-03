@@ -8,67 +8,81 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. Fetch and Group Permissions on Modal Open
     if (createRoleModal) {
         createRoleModal.addEventListener('show.bs.modal', function () {
-            if (permissionsLoaded) return; // Prevent re-fetching if already loaded
+            if (permissionsLoaded) return; // Prevent re-rendering if already loaded
 
-            axios.get('/roles/api/permissions')
-            .then(response => {
-                permissionsLoading.style.display = 'none';
-                permissionsContainer.innerHTML = '';
+            // Hide loading spinner if you have one, since data is available instantly
+            if (permissionsLoading) permissionsLoading.style.display = 'none';
+            permissionsContainer.innerHTML = '';
+            
+            // 2. Retrieve the logged-in user's permissions from localStorage
+            const storedPermissions = localStorage.getItem('permissions');
+            let userPermissions = [];
+            
+            try {
+                // Parse the stored string back into a JSON array
+                userPermissions = storedPermissions ? JSON.parse(storedPermissions) : [];
+            } catch (error) {
+                console.error('Error parsing permissions from localStorage:', error);
+                permissionsContainer.innerHTML = '<span class="text-danger">Failed to load permissions.</span>';
+                return;
+            }
+
+            if (userPermissions.length === 0) {
+                permissionsContainer.innerHTML = '<span class="text-muted">No permissions available.</span>';
+                permissionsLoaded = true;
+                return;
+            }
+
+            // 3. Group permissions by their subject (e.g., "read users" -> "users")
+            const grouped = {};
+            
+            userPermissions.forEach(perm => {
+                // Assuming the backend returns objects like { ID: 1, Name: "read users" }
+                const parts = perm.Name.split(' ');
+                const action = parts[0]; 
+                const subject = parts.slice(1).join(' '); 
                 
-                const allPermissions = response.data || [];
+                if (!grouped[subject]) {
+                    grouped[subject] = [];
+                }
                 
-                // Group permissions by their subject (e.g., "read users" -> "users")
-                const grouped = {};
-                
-                allPermissions.forEach(perm => {
-                    // Anti-Escalation Check: Only process permissions the current user has
-                    if (myPermissions.includes(perm.Name)) {
-                        const parts = perm.Name.split(' ');
-                        const action = parts[0]; // e.g., "read"
-                        const subject = parts.slice(1).join(' '); // e.g., "users"
-                        
-                        if (!grouped[subject]) {
-                            grouped[subject] = [];
-                        }
-                        grouped[subject].push({ id: perm.ID, action: action, name: perm.Name });
-                    }
+                grouped[subject].push({ 
+                    id: perm.ID, 
+                    action: action, 
+                    name: perm.Name 
                 });
+            });
 
-                // Render the grouped checkboxes
-                for (const [subject, perms] of Object.entries(grouped)) {
-                    // Capitalize the subject for the header
-                    const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
-                    
-                    let html = `
-                        <div class="col-md-4 mb-4">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-header bg-light fw-bold text-capitalize">
-                                    ${formattedSubject}
-                                </div>
-                                <div class="card-body">
-                    `;
-                    
-                    perms.forEach(p => {
-                        html += `
+            // 4. Render the grouped checkboxes
+            for (const [subject, perms] of Object.entries(grouped)) {
+                // Capitalize the subject for the header
+                const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
+                
+                let html = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light fw-bold text-capitalize">
+                                ${formattedSubject}
+                            </div>
+                            <div class="card-body">
+                `;
+                
+                perms.forEach(p => {
+                    html += `
                             <div class="form-check mb-2">
                                 <input class="form-check-input perm-checkbox" type="checkbox" value="${p.id}" id="perm_${p.id}">
                                 <label class="form-check-label text-capitalize" for="perm_${p.id}">
                                     ${p.action}
                                 </label>
                             </div>
-                        `;
-                    });
-                    
-                    html += `</div></div></div>`;
-                    permissionsContainer.innerHTML += html;
-                }
+                    `;
+                });
                 
-                permissionsLoaded = true;
-            })
-            .catch(error => {
-                console.error('Error fetching permissions:', error);
-                permissionsLoading.innerHTML = '<span class="text-danger">Failed to load permissions.</span>';
-            });
+                html += `</div></div></div>`;
+                permissionsContainer.innerHTML += html;
+            }
+            
+            permissionsLoaded = true;
         });
     }
 

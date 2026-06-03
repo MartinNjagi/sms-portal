@@ -44,7 +44,7 @@ const getPermissions = async (req, res, next) => {
 // Submit the new role to Go
 const createRole = async (req, res, next) => {
     try {
-        const response = await goEngineWrapper.createRole(req, req.body);
+        const response = await goEngineWrapper.createRole(req);
         res.status(201).json(response);
     } catch (error) {
         res.status(error.response?.status || 500).json({ 

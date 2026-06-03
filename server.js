@@ -100,9 +100,11 @@ const userRoutes = require('./src/modules/users/user.routes');
 const roleRoutes = require('./src/modules/roles/role.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 const billingRoutes = require('./src/modules/billing/billing.routes');
+const renderError = require('./src/services/renderError');
 
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
+app.get('/logout', authController.logout);
 app.get('/dashboard', requireAuth, dashboardController.renderDashboard);
 app.get('/contacts', requireAuth, contactsController.renderAddressBook);
 app.use('/api/auth', authRoutes);             // Handles /login, /logout
@@ -121,10 +123,20 @@ app.get('/', (req, res) => {
 });
 
 
-// --- Error Handling Middleware ---
+// Catch-all 404
+app.use((req, res) => {
+    renderError(res,404)
+});
+
+// Global error handler (must be last)
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ error: 'Internal Server Error', message: err.message });
+
+    renderError(res,500,{
+        message: process.env.NODE_ENV === 'development'
+            ? err.message
+            : 'An unexpected error occurred.',
+    });
 });
 
 // --- Start Server ---

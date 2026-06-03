@@ -208,11 +208,17 @@ const createUser = async (req) => {
 };
 
 const getAllClients = async (req) => {
-
     try {
+        // USE YOUR HELPER HERE
+        const token = getJWT(req); 
+        
+        if (!token) {
+            throw new Error('Missing JWT token on request context');
+        }
+
         const response = await clients.identity.get(
             '/api/v1/clients',
-            withContext(req, { Authorization: `Bearer ${req.token}` }),
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
         return response.data;
     } catch (error) {
@@ -240,10 +246,30 @@ const getRoles = async (req) => {
     }
 };
 
+const listAvailablePermissions = async (req) => {
+    try {
+        const token = getJWT(req);
+        if (!req.token) {
+            throw new Error('Missing JWT token on request context');
+        }
+
+        const response = await clients.identity.get(
+            '/api/v1/roles/permissions',
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            }),
+        );
+
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'getRoles');
+    }
+};
+
 const getRolePermissions = async (req, roleId) => {
     try {
         const response = await clients.identity.get(
-            '/api/v1/roles/${roleId}/permissions',
+            `/api/v1/roles/${roleId}/permissions`,
             withContext(req, {
                 Authorization: `Bearer ${req.token}`,
             }),
@@ -252,6 +278,20 @@ const getRolePermissions = async (req, roleId) => {
     } catch (error) {
         console.error(`Error fetching permissions for role ${roleId} from Go Engine:`, error.message);
         throw error;
+    }
+};
+
+const createRole = async (req) => {
+    const payload = req.body;
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/roles',
+            payload,
+            withContext(req, {}, payload),
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'verifyOtp');
     }
 };
 
@@ -446,6 +486,8 @@ module.exports = {
     getUsers,
     getRoles,
     getRolePermissions,
+    listAvailablePermissions,
+    createRole,
     createUser,
     getDeveloperSettings,
 

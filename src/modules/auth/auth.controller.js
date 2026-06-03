@@ -22,24 +22,25 @@ const handleRequestOtp = async (req, res) => {
 const handleVerifyOtp = async (req, res) => {
     try {
         const { msisdn, code } = req.body;
-        const result = await goEngineWrapper.verifyOtp(msisdn, code,req);
+        const result = await goEngineWrapper.verifyOtp(msisdn, code, req);
 
         // 1. The BFF catches result.token and HIDES it inside an encrypted cookie
-    res.cookie('access_token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
-        path: '/',
-        maxAge: 24 * 60 * 60 * 1000 
-    });
+        res.cookie('access_token', result.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            path: '/',
+            maxAge: 24 * 60 * 60 * 1000 
+        });
 
-    // 2. The BFF passes ONLY the safe data to the Vue frontend
-    res.status(200).json({
-        message: "Login successful",
-        user: result.user,               // <-- Passed through
-        permissions: result.permissions, // <-- Passed through
-        redirectUrl: '/dashboard'
-    });
+        // 2. Send the success response to the browser to trigger the redirect
+        res.status(200).json({
+            message: "Login successful",
+            user: result.user,               
+            permission_ids: result.permission_ids, 
+            permissions: result.permissions,
+            redirectUrl: '/dashboard'
+        });
     } catch (error) {
         res.status(401).json({ error: error.message });
     }

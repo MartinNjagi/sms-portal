@@ -131,7 +131,7 @@
 
 {% block scripts %}
 <script>
-    const myPermissions = {{ user.permissions | dump | safe }};
+const myPermissionIds = {{ user.permission_ids | dump | safe }};
 </script>
 <script src="/js/customjs/roles.js"></script>
 {% endblock %}
