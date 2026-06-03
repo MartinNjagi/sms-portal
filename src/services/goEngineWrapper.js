@@ -194,12 +194,19 @@ const verifyOtp = async (msisdn, code, req) => {
     }
 };
 const createUser = async (req) => {
-    const payload = req.body;
     try {
+        const payload = req.body;
+        const token = getJWT(req);
+            if (!req.token) {
+                throw new Error('Missing JWT token on request context');
+            }
+    
         const response = await clients.identity.post(
             '/api/v1/users',
             payload,
-            withContext(req, {}, payload),
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            }, payload),
         );
         return response.data;
     } catch (error) {
@@ -209,7 +216,6 @@ const createUser = async (req) => {
 
 const getAllClients = async (req) => {
     try {
-        // USE YOUR HELPER HERE
         const token = getJWT(req); 
         
         if (!token) {
@@ -282,16 +288,23 @@ const getRolePermissions = async (req, roleId) => {
 };
 
 const createRole = async (req) => {
+     try {
+    const token = getJWT(req);
+        if (!req.token) {
+            throw new Error('Missing JWT token on request context');
+        }
     const payload = req.body;
-    try {
+   
         const response = await clients.identity.post(
             '/api/v1/roles',
             payload,
-            withContext(req, {}, payload),
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            }, payload),
         );
         return response.data;
     } catch (error) {
-        handleEngineError(error, 'verifyOtp');
+        handleEngineError(error, 'createRole');
     }
 };
 

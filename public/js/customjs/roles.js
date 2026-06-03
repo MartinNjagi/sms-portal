@@ -1,61 +1,88 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    const createRoleModal = document.getElementById('createRoleModal');
+    const createRoleModalElement = document.getElementById('createRoleModal');
     const permissionsContainer = document.getElementById('permissionsContainer');
     const permissionsLoading = document.getElementById('permissionsLoading');
     let permissionsLoaded = false;
 
     // 1. Fetch and Group Permissions on Modal Open
-    if (createRoleModal) {
-        createRoleModal.addEventListener('show.bs.modal', function () {
-            if (permissionsLoaded) return; // Prevent re-rendering if already loaded
-
-            // Hide loading spinner if you have one, since data is available instantly
-            if (permissionsLoading) permissionsLoading.style.display = 'none';
-            permissionsContainer.innerHTML = '';
+    if (createRoleModalElement) {
+        createRoleModalElement.addEventListener('show.bs.modal', function () {
+            console.log('[Modal] Opened Create Role Modal');
             
-            // 2. Retrieve the logged-in user's permissions from localStorage
+            if (permissionsLoaded) {
+                console.log('[Modal] Permissions already loaded, skipping render.');
+                return; 
+            }
+
+            if (permissionsLoading) permissionsLoading.style.display = 'none';
+            if (permissionsContainer) permissionsContainer.innerHTML = '';
+            
+            // 2. Retrieve the logged-in user's permissions
             const storedPermissions = localStorage.getItem('permissions');
+            console.log('[LocalStorage] Raw string data:', storedPermissions);
+            
             let userPermissions = [];
             
             try {
-                // Parse the stored string back into a JSON array
                 userPermissions = storedPermissions ? JSON.parse(storedPermissions) : [];
+                console.log('[LocalStorage] Parsed array length:', userPermissions.length, 'Data:', userPermissions);
             } catch (error) {
-                console.error('Error parsing permissions from localStorage:', error);
-                permissionsContainer.innerHTML = '<span class="text-danger">Failed to load permissions.</span>';
+                console.error('[Error] Failed parsing permissions from localStorage:', error);
+                if (permissionsContainer) {
+                    permissionsContainer.innerHTML = '<span class="text-danger">Failed to load permissions. Data corrupted.</span>';
+                }
                 return;
             }
 
-            if (userPermissions.length === 0) {
-                permissionsContainer.innerHTML = '<span class="text-muted">No permissions available.</span>';
+            if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
+                console.warn('[Warning] No permissions found or data is not an array.');
+                if (permissionsContainer) {
+                    permissionsContainer.innerHTML = '<span class="text-muted">No permissions available.</span>';
+                }
                 permissionsLoaded = true;
                 return;
             }
 
-            // 3. Group permissions by their subject (e.g., "read users" -> "users")
+            // 3. Group permissions by their subject
             const grouped = {};
             
-            userPermissions.forEach(perm => {
-                // Assuming the backend returns objects like { ID: 1, Name: "read users" }
-                const parts = perm.Name.split(' ');
+            userPermissions.forEach((perm, index) => {
+                console.log(`[Processing Loop] Item #${index}:`, perm);
+                
+                // Fallback: Check if perm is a string (e.g., "read users") or an object (e.g., {ID: 1, Name: "read users"})
+                // Go struct JSON outputs are often camelCase or pascalCase based on tags (e.g., Name vs name).
+                let permName = typeof perm === 'string' ? perm : (perm.Name || perm.name);
+                let permId = typeof perm === 'string' ? perm : (perm.ID || perm.id);
+
+                if (!permName) {
+                    console.error(`[Error] Skipping invalid format at index ${index}. Could not find a 'Name' property.`, perm);
+                    return; // Skip this iteration
+                }
+
+                const parts = permName.split(' ');
                 const action = parts[0]; 
-                const subject = parts.slice(1).join(' '); 
+                const subject = parts.length > 1 ? parts.slice(1).join(' ') : 'general'; 
                 
                 if (!grouped[subject]) {
                     grouped[subject] = [];
                 }
                 
                 grouped[subject].push({ 
-                    id: perm.ID, 
+                    id: permId, 
                     action: action, 
-                    name: perm.Name 
+                    name: permName 
                 });
             });
 
+            console.log('[Grouped Data] Final grouped object:', grouped);
+
             // 4. Render the grouped checkboxes
+            if (Object.keys(grouped).length === 0) {
+                console.warn('[Warning] Grouping resulted in 0 items to render.');
+            }
+
             for (const [subject, perms] of Object.entries(grouped)) {
-                // Capitalize the subject for the header
                 const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
                 
                 let html = `
@@ -79,11 +106,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 html += `</div></div></div>`;
-                permissionsContainer.innerHTML += html;
+                if (permissionsContainer) permissionsContainer.innerHTML += html;
             }
             
+            console.log('[Success] Finished rendering to DOM');
             permissionsLoaded = true;
         });
+    } else {
+        console.error('[Error] Modal element #createRoleModal not found in the DOM.');
     }
 
     // 2. Submit the Form

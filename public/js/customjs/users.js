@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. Submit the New User to the Backend
     // ---------------------------------------------------------
     const createUserForm = document.getElementById('createUserForm');
-    
+
     if (createUserForm) {
         createUserForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -50,37 +50,43 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
 
+            // Updated payload to match Go struct requirements
             const payload = {
-            client_id: parseInt(document.getElementById('client_id').value),
-            name: document.getElementById('name').value,
-            email: document.getElementById('email').value,
-            role_id: parseInt(document.getElementById('role_id').value),
-            password: document.getElementById('password').value
-        };
+                client_id: parseInt(document.getElementById('client_id').value),
+                full_name: document.getElementById('name').value, // Changed from 'name'
+                email: document.getElementById('email').value,
+                msisdn: document.getElementById('msisdn').value,  // Added MSISDN
+                role_id: parseInt(document.getElementById('role_id').value),
+                password: document.getElementById('password').value
+            };
 
-        axios.post('/users/api/create', payload)
-            .then(response => {
-                alert('User created successfully!');
-                
-                // Bootstrap 5 way to hide a modal programmatically
-                const modalInstance = bootstrap.Modal.getInstance(createUserModal);
-                if (modalInstance) {
-                    modalInstance.hide();
-                }
-                
-                window.location.reload(); 
-            })
-            .catch(error => {
-                console.error('Error creating user:', error);
-                const errorMessage = error.response && error.response.data && error.response.data.message 
-                    ? error.response.data.message 
-                    : 'Failed to create user.';
-                alert(errorMessage);
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.textContent = 'Create User';
-            });
+            axios.post('/users/api/create', payload)
+                .then(response => {
+                    alert('User created successfully!');
+                    
+                    // Get the actual DOM element for Bootstrap 5 instance
+                    const modalEl = document.getElementById('createUserModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                    
+                    window.location.reload(); 
+                })
+                .catch(error => {
+                    console.error('Error creating user:', error);
+                    
+                    // Look for error.response.data.error instead of .message
+                    const errorMessage = error.response && error.response.data && error.response.data.error 
+                        ? error.response.data.error 
+                        : 'Failed to create user.';
+                    
+                    alert(errorMessage);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Create User';
+                });
         });
     }
 });
