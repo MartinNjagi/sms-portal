@@ -12,8 +12,8 @@
         {{ message }}
     </p>
 
-    <a href="/" class="btn btn-primary">
-        Return Home
+    <a href="{{ actionUrl | default('/') }}" class="btn btn-primary">
+        {{ actionText | default('Return Home') }}
     </a>
 </div>
 {% endblock %}

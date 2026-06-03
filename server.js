@@ -117,11 +117,9 @@ app.use('/accounts', billingRoutes);
 app.use('/users', userRoutes);   
 app.use('/roles', roleRoutes);   
 
-// 👉 ADD THIS LINE RIGHT HERE:
 app.get('/', (req, res) => {
-    res.redirect('/dashboard');
+    res.redirect('/login');
 });
-
 
 // Catch-all 404
 app.use((req, res) => {
