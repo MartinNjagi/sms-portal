@@ -4,14 +4,18 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 // Render the Roles Management Page
 const viewRoles = async (req, res, next) => {
     try {
-        // Assuming you have a method to fetch existing roles
         const roles = await goEngineWrapper.getRoles(req, req.user.client_id);
+        
+        // Strip the superAdmin role (id: 1) for any client other than client_id 1
+        const filteredRoles = req.user.client_id !== 1
+            ? roles.filter(role => role.id !== 1)
+            : roles;
         
         res.render('roles/index.njk', { 
             title: 'Role Management',
             alias: 'roles',
-            roles,
-            user: req.user // Contains the permissions array from login
+            roles: filteredRoles,
+            user: req.user
         });
     } catch (error) {
         next(error);

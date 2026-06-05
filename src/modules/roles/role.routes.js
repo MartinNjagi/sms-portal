@@ -12,8 +12,6 @@ router.get('/', roleController.viewRoles);
 router.get('/api/permissions', requireAuth, roleController.getPermissions);
 router.get('/api/:id/permissions', requireAuth, roleController.viewRolePermissions);
 router.post('/api/create', requireAuth, roleController.createRole);
-
-// --- NEW API ROUTES ---
 router.post('/api/assign', requireAuth, roleController.assignRolePermissions);
 router.delete('/api/:id/delete', requireAuth, roleController.deleteRole);
 

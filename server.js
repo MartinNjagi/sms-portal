@@ -139,6 +139,10 @@ app.use((err, req, res, next) => {
 
 // --- Start Server ---
 const PORT = process.env.PORT || 3000;
+const { initializeStorage } = require('./src/services/cloudStorage');
+// Run storage setup
+initializeStorage().then(() => {
 server.listen(PORT, () => {
     console.log(`SMS Dashboard Overwatch running on port ${PORT}`);
+});
 });
