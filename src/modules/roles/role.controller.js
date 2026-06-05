@@ -53,9 +53,36 @@ const createRole = async (req, res, next) => {
     }
 };
 
+// Submit updated permissions for an existing role
+const assignRolePermissions = async (req, res, next) => {
+    try {
+        const response = await goEngineWrapper.assignRolePermissions(req);
+        res.status(200).json(response);
+    } catch (error) {
+        res.status(error.response?.status || 500).json({ 
+            message: error.response?.data?.error || "Failed to update role permissions" 
+        });
+    }
+};
+
+// Delete a role
+const deleteRole = async (req, res, next) => {
+    try {
+        const roleId = req.params.id;
+        const response = await goEngineWrapper.deleteRole(req, roleId);
+        res.status(200).json(response);
+    } catch (error) {
+        res.status(error.response?.status || 500).json({ 
+            message: error.response?.data?.error || "Failed to delete role" 
+        });
+    }
+};
+
 module.exports = {
     viewRoles,
     viewRolePermissions,
     getPermissions,
-    createRole
+    createRole,
+    assignRolePermissions,
+    deleteRole             
 };

@@ -18,7 +18,7 @@ contactsController.renderIndex = async (req, res, next) => {
     }
 };
 
-// API Endpoint for the frontend AJAX form to hit
+// API Endpoint for the frontend form to hit
 contactsController.createGroup = async (req, res, next) => {
     try {
         const { groupName, description } = req.body;

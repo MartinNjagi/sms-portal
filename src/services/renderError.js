@@ -17,8 +17,8 @@ const ERRORS = {
         title: 'Page Not Found',
         message: 'The page you requested does not exist.',
         icon: 'bi-search',
-        actionUrl: '/',
-        actionText: 'Return Home'
+        actionUrl: '/dashboard',
+        actionText: 'Return to Dashboard'
     },
     500: {
         title: 'Internal Server Error',

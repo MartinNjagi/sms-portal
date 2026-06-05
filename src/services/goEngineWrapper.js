@@ -333,6 +333,54 @@ const getDeveloperSettings = async (req) => {
     }
 };
 
+const assignRolePermissions = async (req) => {
+    try {
+        const token = getJWT(req); // Assuming you use this helper based on your snippet
+        if (!token) {
+            throw new Error('Missing JWT token on request context');
+        }
+        
+        const payload = req.body;
+        
+        const response = await clients.identity.put(
+            '/api/v1/roles/assign',
+            payload,
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            }, payload)
+        );
+        
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'assignRolePermissions');
+    }
+};
+
+const deleteRole = async (req, roleId) => {
+    try {
+        const token = getJWT(req);
+        if (!token) {
+            throw new Error('Missing JWT token on request context');
+        }
+        
+        // Note: Adjust the URI if your Go endpoint uses a different path structure
+        const response = await clients.identity.delete(
+            `/api/v1/roles/${roleId}`,
+            withContext(req, {
+                Authorization: `Bearer ${token}`,
+            })
+        );
+        
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'deleteRole');
+    }
+};
+
+// Don't forget to export them at the bottom of your wrapper file:
+// module.exports = { ...,  };
+
+
 // ----------------------------------------------------------------------------
 // BILLING SERVICE
 // ----------------------------------------------------------------------------
@@ -488,20 +536,58 @@ const startCampaign = async (payload, req) => {
     }
 };
 
+// V2
+// Start a standard or scheduled campaign
+const launchCampaign = async (payload, req) => {
+    try {
+        const response = await clients.sms.post(
+            '/api/v1/campaigns/launch',
+            payload,
+            withContext(req, { Authorization: `Bearer ${req.token}` }, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'campaignService.launch');
+    }
+};
+
+const createGroup = async (groupData, req) => {
+    try {
+        const response = await clients.sms.post(
+            '/api/v1/contact/group/update', // Reusing the Go backend's group logic
+            groupData,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'addressBookService.createGroup');
+    }
+};
+
+const addContacts= async (payload, req) => {
+    try {
+        const response = await clients.sms.post(
+            '/api/v1/contact/create',
+            payload,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'addressBookService.addContacts');
+    }
+};
+
 // =============================================================================
 // EXPORTS
 // =============================================================================
 module.exports = {
     // Identity
-    requestOtp,
-    verifyOtp,
+    requestOtp,    verifyOtp,
     getAllClients,
-    getUsers,
-    getRoles,
-    getRolePermissions,
-    listAvailablePermissions,
-    createRole,
-    createUser,
+    getUsers,createUser,
+    getRoles,createRole,deleteRole,
+    getRolePermissions,assignRolePermissions,
+    listAvailablePermissions, 
     getDeveloperSettings,
 
     // Billing
@@ -511,13 +597,11 @@ module.exports = {
 
     // SMS / Campaigns
     getDashboardStats,
-    getRecentCampaigns,
-    startBulkCampaign,
-    getContactGroups,
-    createContactGroup,
+    getRecentCampaigns,startBulkCampaign,startCampaign,
+    getContactGroups,createContactGroup,
     getSenderIds,
     getTemplates,
-    startCampaign,
+    
 
     // Direct client access (if needed by other modules)
     clients,

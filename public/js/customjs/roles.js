@@ -1,134 +1,106 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    const createRoleModalElement = document.getElementById('createRoleModal');
-    const permissionsContainer = document.getElementById('permissionsContainer');
-    const permissionsLoading = document.getElementById('permissionsLoading');
-    let permissionsLoaded = false;
+    // --- UTILITY: RENDER MULTICOLUMN CHECKBOX TABLE ---
+    function renderPermissionsTable(containerId, activePermissionIds = [], checkboxClass = 'perm-checkbox') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-    // 1. Fetch and Group Permissions on Modal Open
-    if (createRoleModalElement) {
-        createRoleModalElement.addEventListener('show.bs.modal', function () {
-            console.log('[Modal] Opened Create Role Modal');
+        const storedPermissions = localStorage.getItem('permissions');
+        let userPermissions = [];
+        
+        try {
+            userPermissions = storedPermissions ? JSON.parse(storedPermissions) : [];
+        } catch (error) {
+            container.innerHTML = '<span class="text-danger">Failed to load permissions. Data corrupted.</span>';
+            return;
+        }
+
+        if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
+            container.innerHTML = '<span class="text-muted">No permissions available.</span>';
+            return;
+        }
+
+        // Group permissions by subject
+        const grouped = {};
+        userPermissions.forEach(perm => {
+            let permName = typeof perm === 'string' ? perm : (perm.Name || perm.name);
+            let permId = typeof perm === 'string' ? perm : (perm.ID || perm.id);
+
+            if (!permName) return;
+
+            const parts = permName.split(' ');
+            const action = parts[0]; 
+            const subject = parts.length > 1 ? parts.slice(1).join(' ') : 'general'; 
             
-            if (permissionsLoaded) {
-                console.log('[Modal] Permissions already loaded, skipping render.');
-                return; 
-            }
-
-            if (permissionsLoading) permissionsLoading.style.display = 'none';
-            if (permissionsContainer) permissionsContainer.innerHTML = '';
+            if (!grouped[subject]) grouped[subject] = [];
             
-            // 2. Retrieve the logged-in user's permissions
-            const storedPermissions = localStorage.getItem('permissions');
-            console.log('[LocalStorage] Raw string data:', storedPermissions);
-            
-            let userPermissions = [];
-            
-            try {
-                userPermissions = storedPermissions ? JSON.parse(storedPermissions) : [];
-                console.log('[LocalStorage] Parsed array length:', userPermissions.length, 'Data:', userPermissions);
-            } catch (error) {
-                console.error('[Error] Failed parsing permissions from localStorage:', error);
-                if (permissionsContainer) {
-                    permissionsContainer.innerHTML = '<span class="text-danger">Failed to load permissions. Data corrupted.</span>';
-                }
-                return;
-            }
-
-            if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
-                console.warn('[Warning] No permissions found or data is not an array.');
-                if (permissionsContainer) {
-                    permissionsContainer.innerHTML = '<span class="text-muted">No permissions available.</span>';
-                }
-                permissionsLoaded = true;
-                return;
-            }
-
-            // 3. Group permissions by their subject
-            const grouped = {};
-            
-            userPermissions.forEach((perm, index) => {
-                console.log(`[Processing Loop] Item #${index}:`, perm);
-                
-                // Fallback: Check if perm is a string (e.g., "read users") or an object (e.g., {ID: 1, Name: "read users"})
-                // Go struct JSON outputs are often camelCase or pascalCase based on tags (e.g., Name vs name).
-                let permName = typeof perm === 'string' ? perm : (perm.Name || perm.name);
-                let permId = typeof perm === 'string' ? perm : (perm.ID || perm.id);
-
-                if (!permName) {
-                    console.error(`[Error] Skipping invalid format at index ${index}. Could not find a 'Name' property.`, perm);
-                    return; // Skip this iteration
-                }
-
-                const parts = permName.split(' ');
-                const action = parts[0]; 
-                const subject = parts.length > 1 ? parts.slice(1).join(' ') : 'general'; 
-                
-                if (!grouped[subject]) {
-                    grouped[subject] = [];
-                }
-                
-                grouped[subject].push({ 
-                    id: permId, 
-                    action: action, 
-                    name: permName 
-                });
-            });
-
-            console.log('[Grouped Data] Final grouped object:', grouped);
-
-            // 4. Render the grouped checkboxes
-            if (Object.keys(grouped).length === 0) {
-                console.warn('[Warning] Grouping resulted in 0 items to render.');
-            }
-
-            for (const [subject, perms] of Object.entries(grouped)) {
-                const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
-                
-                let html = `
-                    <div class="col-md-4 mb-4">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-header bg-light fw-bold text-capitalize">
-                                ${formattedSubject}
-                            </div>
-                            <div class="card-body">
-                `;
-                
-                perms.forEach(p => {
-                    html += `
-                            <div class="form-check mb-2">
-                                <input class="form-check-input perm-checkbox" type="checkbox" value="${p.id}" id="perm_${p.id}">
-                                <label class="form-check-label text-capitalize" for="perm_${p.id}">
-                                    ${p.action}
-                                </label>
-                            </div>
-                    `;
-                });
-                
-                html += `</div></div></div>`;
-                if (permissionsContainer) permissionsContainer.innerHTML += html;
-            }
-            
-            console.log('[Success] Finished rendering to DOM');
-            permissionsLoaded = true;
+            grouped[subject].push({ id: permId, action: action, name: permName });
         });
-    } else {
-        console.error('[Error] Modal element #createRoleModal not found in the DOM.');
+
+        // Build Table structure
+        let html = `
+            <div class="table-responsive border rounded">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="w-25 ps-3">Resource / Subject</th>
+                            <th>Allowed Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        for (const [subject, perms] of Object.entries(grouped)) {
+            const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
+            
+            html += `
+                <tr>
+                    <td class="ps-3 fw-semibold text-capitalize border-end bg-light bg-opacity-50">${formattedSubject}</td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-4 py-1">
+            `;
+            
+            perms.forEach(p => {
+                const isChecked = activePermissionIds.includes(parseInt(p.id)) ? 'checked' : '';
+                html += `
+                    <div class="form-check form-check-inline m-0">
+                        <input class="form-check-input ${checkboxClass}" type="checkbox" value="${p.id}" id="perm_${containerId}_${p.id}" ${isChecked}>
+                        <label class="form-check-label text-capitalize cursor-pointer" for="perm_${containerId}_${p.id}">
+                            ${p.action}
+                        </label>
+                    </div>
+                `;
+            });
+            
+            html += `</div></td></tr>`;
+        }
+
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
     }
 
-    // 2. Submit the Form
+    // --- 1. CREATE ROLE FLOW ---
+    const createRoleModalElement = document.getElementById('createRoleModal');
+    let createPermissionsLoaded = false;
+
+    if (createRoleModalElement) {
+        createRoleModalElement.addEventListener('show.bs.modal', function () {
+            if (createPermissionsLoaded) return;
+            document.getElementById('createPermissionsLoading').style.display = 'none';
+            renderPermissionsTable('createPermissionsContainer', [], 'create-perm-checkbox');
+            createPermissionsLoaded = true;
+        });
+    }
+
     const createRoleForm = document.getElementById('createRoleForm');
-    
     if (createRoleForm) {
         createRoleForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
             const btn = document.getElementById('saveRoleBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
 
-            // Gather all checked permission IDs
-            const checkedBoxes = document.querySelectorAll('.perm-checkbox:checked');
+            const checkedBoxes = document.querySelectorAll('.create-perm-checkbox:checked');
             const permissionIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
 
             const payload = {
@@ -140,73 +112,150 @@ document.addEventListener('DOMContentLoaded', function() {
 
             axios.post('/roles/api/create', payload)
             .then(response => {
-                alert('Role created successfully!');
                 window.location.reload(); 
             })
             .catch(error => {
-                console.error('Error creating role:', error);
-                const errorMsg = error.response?.data?.message || 'Failed to create role.';
-                alert(errorMsg);
+                alert(error.response?.data?.message || 'Failed to create role.');
                 btn.disabled = false;
                 btn.textContent = 'Create Role';
             });
         });
     }
 
-    const viewPermissionsModal = document.getElementById('viewPermissionsModal');
+    // --- 2. EDIT ROLE FLOW ---
+    const editRoleModal = new bootstrap.Modal(document.getElementById('editRoleModal'));
+    const editButtons = document.querySelectorAll('.edit-role-btn');
 
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const roleId = this.getAttribute('data-role-id');
+            const roleName = this.getAttribute('data-role-name');
+            const roleDesc = this.getAttribute('data-role-desc');
+
+            document.getElementById('editRoleTitleName').textContent = roleName;
+            document.getElementById('edit_role_id').value = roleId;
+            document.getElementById('edit_role_name').value = roleName;
+            document.getElementById('edit_role_description').value = roleDesc;
+
+            document.getElementById('editPermissionsLoading').style.display = 'block';
+            document.getElementById('editPermissionsContainer').innerHTML = '';
+            
+            editRoleModal.show();
+
+            // Fetch existing permissions to pre-check the table
+            axios.get(`/roles/api/${roleId}/permissions`)
+            .then(response => {
+                document.getElementById('editPermissionsLoading').style.display = 'none';
+                const currentPerms = response.data || [];
+                const currentPermIds = currentPerms.map(p => parseInt(p.id || p.ID));
+                
+                renderPermissionsTable('editPermissionsContainer', currentPermIds, 'edit-perm-checkbox');
+            })
+            .catch(error => {
+                document.getElementById('editPermissionsLoading').style.display = 'none';
+                document.getElementById('editPermissionsContainer').innerHTML = '<div class="alert alert-danger">Failed to fetch current permissions.</div>';
+            });
+        });
+    });
+
+    const editRoleForm = document.getElementById('editRoleForm');
+    if (editRoleForm) {
+        editRoleForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('updateRoleBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+
+            const roleId = document.getElementById('edit_role_id').value;
+            const checkedBoxes = document.querySelectorAll('.edit-perm-checkbox:checked');
+            const permissionIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+            // Assuming AssignRolePermissions takes { role_id, permission_ids, description }
+            const payload = {
+                role_id: parseInt(roleId),
+                description: document.getElementById('edit_role_description').value,
+                permission_ids: permissionIds
+            };
+
+            axios.post(`/roles/api/assign`, payload) // Adjust URL to match your Express proxy routing
+            .then(response => {
+                window.location.reload(); 
+            })
+            .catch(error => {
+                alert(error.response?.data?.message || 'Failed to update role.');
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            });
+        });
+    }
+
+    // --- 3. DELETE ROLE FLOW ---
+    const deleteButtons = document.querySelectorAll('.delete-role-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const roleId = this.getAttribute('data-role-id');
+            const roleName = this.getAttribute('data-role-name');
+
+            if (confirm(`Are you sure you want to delete the "${roleName}" role?\nThis action cannot be undone.`)) {
+                
+                // Disable button to prevent double-click
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                axios.delete(`/roles/api/${roleId}/delete`) // Adjust URL to match your Express proxy routing
+                .then(() => {
+                    window.location.reload();
+                })
+                .catch(error => {
+                    alert(error.response?.data?.message || 'Failed to delete role. Ensure no users are assigned to it.');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-trash"></i>';
+                });
+            }
+        });
+    });
+
+    // --- 4. VIEW PERMISSIONS FLOW ---
+    const viewPermissionsModal = document.getElementById('viewPermissionsModal');
     if (viewPermissionsModal) {
         viewPermissionsModal.addEventListener('show.bs.modal', function (event) {
-            // Button that triggered the modal
             const button = event.relatedTarget; 
-            
-            // Extract info from data-* attributes
             const roleId = button.getAttribute('data-role-id');
             const roleName = button.getAttribute('data-role-name');
 
-            // Update the modal title
             document.getElementById('viewPermsRoleName').textContent = roleName;
 
-            // UI Elements
             const loading = document.getElementById('viewPermsLoading');
             const container = document.getElementById('viewPermsContainer');
 
-            // Reset UI to loading state
             loading.classList.remove('d-none');
             container.classList.add('d-none');
             container.innerHTML = '';
 
-            // Hit your new Node.js endpoint (which proxies to your Go endpoint)
             axios.get(`/roles/api/${roleId}/permissions`)
             .then(response => {
-                // Hide loading, show container
                 loading.classList.add('d-none');
                 container.classList.remove('d-none');
 
                 const perms = response.data || [];
-                
                 if (perms.length === 0) {
                     container.innerHTML = '<div class="alert alert-info">No active permissions found for this role.</div>';
                     return;
                 }
 
-                // Render permissions as clean, modern pills
                 let html = '<div class="d-flex flex-wrap gap-2">';
                 perms.forEach(perm => {
-                    // Adjust 'perm.name' to match whatever your Go JSON output is (e.g., perm.Name)
                     const permName = perm.name || perm.Name; 
                     html += `
-                        <span class="badge bg-primary bg-opacity-10 border border-primary-subtle text-primary text-capitalize px-3 py-2 rounded-pill fs-6">
+                        <span class="badge bg-primary bg-opacity-10 border border-primary-subtle text-primary text-capitalize px-3 py-2 rounded-pill fs-6 shadow-sm">
                             <i class="bi bi-check2-circle me-1"></i> ${permName}
                         </span>
                     `;
                 });
                 html += '</div>';
-                
                 container.innerHTML = html;
             })
             .catch(error => {
-                console.error('Error fetching role permissions:', error);
                 loading.classList.add('d-none');
                 container.classList.remove('d-none');
                 container.innerHTML = `
@@ -217,5 +266,4 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
 });

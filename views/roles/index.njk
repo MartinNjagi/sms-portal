@@ -10,59 +10,66 @@
     </div>
 
     <div class="card p-0 border-0 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th class="ps-4">Role Name</th>
-                    <th>Description</th>
-                    <th>Permissions</th>
-                    <th class="text-end pe-4">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for role in roles %}
-                <tr>
-                    <td class="ps-4 fw-bold">{{ role.name }}</td>
-                    <td class="text-muted">{{ role.description or 'No description provided' }}</td>
-                    <td>
-                        {% if role.permissions_count > 0 %}
-                            <button class="btn btn-sm btn-light border fw-semibold text-secondary" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#viewPermissionsModal"
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Role Name</th>
+                        <th>Description</th>
+                        <th>Permissions</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ role.name }}</td>
+                        <td class="text-muted">{{ role.description or 'No description provided' }}</td>
+                        <td>
+                            {% if role.permissions_count > 0 %}
+                                <button class="btn btn-sm btn-light border fw-semibold text-secondary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#viewPermissionsModal"
+                                        data-role-id="{{ role.id }}"
+                                        data-role-name="{{ role.name }}">
+                                    <i class="bi bi-eye me-1"></i> View {{ role.permissions_count }} Permissions
+                                </button>
+                            {% else %}
+                                <span class="text-muted small"><em>No permissions</em></span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-primary me-1 edit-role-btn" 
+                                    title="Edit Role"
+                                    data-role-id="{{ role.id }}"
+                                    data-role-name="{{ role.name }}"
+                                    data-role-desc="{{ role.description }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-role-btn" 
+                                    title="Delete Role"
                                     data-role-id="{{ role.id }}"
                                     data-role-name="{{ role.name }}">
-                                <i class="bi bi-eye me-1"></i> View {{ role.permissions_count }} Permissions
+                                <i class="bi bi-trash"></i>
                             </button>
-                        {% else %}
-                            <span class="text-muted small"><em>No permissions</em></span>
-                        {% endif %}
-                    </td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-primary me-1" title="Edit Role">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" title="Delete Role">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="text-center text-muted py-4">
-                        <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                        No custom roles found. Create one to get started!
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                            No custom roles found. Create one to get started!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    </div>
-    </div>
+</div>
 
 <div class="modal fade" id="createRoleModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Create New Role</h5>
@@ -72,7 +79,7 @@
         <div class="modal-body">
           <input type="hidden" id="client_id" value="{{ user.client_id }}">
 
-          <div class="row mb-3">
+          <div class="row mb-4">
               <div class="col-md-6">
                   <label class="form-label">Role Name</label>
                   <input type="text" class="form-control" id="role_name" required>
@@ -83,17 +90,51 @@
               </div>
           </div>
 
-          <hr>
-          
           <h6 class="mb-3">Assign Permissions</h6>
-          <div id="permissionsLoading" class="text-muted">Loading available permissions...</div>
-          
-          <div id="permissionsContainer" class="row"></div>
+          <div id="createPermissionsLoading" class="text-muted">Loading available permissions...</div>
+          <div id="createPermissionsContainer"></div>
 
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveRoleBtn">Create Role</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editRoleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Role: <span id="editRoleTitleName" class="text-primary"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="editRoleForm">
+        <div class="modal-body">
+          <input type="hidden" id="edit_role_id">
+          
+          <div class="row mb-4">
+              <div class="col-md-6">
+                  <label class="form-label">Role Name</label>
+                  <input type="text" class="form-control" id="edit_role_name" required disabled readonly>
+                  <div class="form-text">Role names typically cannot be changed after creation.</div>
+              </div>
+              <div class="col-md-6">
+                  <label class="form-label">Description</label>
+                  <input type="text" class="form-control" id="edit_role_description">
+              </div>
+          </div>
+
+          <h6 class="mb-3">Assign Permissions</h6>
+          <div id="editPermissionsLoading" class="text-muted">Fetching current permissions...</div>
+          <div id="editPermissionsContainer"></div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="updateRoleBtn">Save Changes</button>
         </div>
       </form>
     </div>
@@ -110,16 +151,13 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        
         <div id="viewPermsLoading" class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p class="text-muted mt-2 mb-0">Fetching permissions...</p>
         </div>
-        
         <div id="viewPermsContainer" class="d-none"></div>
-
       </div>
       <div class="modal-footer bg-light">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
