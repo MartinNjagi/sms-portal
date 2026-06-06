@@ -23,10 +23,24 @@ const createServiceClient = (serviceName) => {
         headers: { 'Content-Type': 'application/json' },
     });
 
+    // Request Interceptor
     client.interceptors.request.use(reqConfig => {
         console.log(`[${serviceName.toUpperCase()} Outgoing] ${reqConfig.method.toUpperCase()} -> ${client.getUri(reqConfig)}`);
         return reqConfig;
     });
+
+    // Response Interceptor
+    client.interceptors.response.use(
+        (response) => {
+            // The Go engine returns the standardized APIResponse struct.
+            // Axios puts this in `response.data`.
+            // Expected shape: { status: int, message: string, data: any, pagination?: any }
+            return response;
+        },
+        (error) => {
+            return Promise.reject(error);
+        }
+    );
 
     return client;
 };
@@ -51,35 +65,41 @@ const extractIP = (req) =>
     || req?.socket?.remoteAddress;
 
 /**
- * HMAC-SHA256 signs a payload using the shared internal service secret.
- * The Go middleware recomputes this and rejects any request where it doesn't match.
- * Cost: <1ms even for large payloads — negligible.
+ * HMAC-SHA256 signs timestamp + body, matching Go's VerifySignature middleware.
+ * Format: "<unix_seconds>.<body>" — both sides must agree on this exactly.
  */
-const signPayload = (body = '') => {
+const signPayload = (body = '', timestamp) => {
   if (typeof body !== 'string') {
     throw new TypeError('HMAC body must be a string');
   }
-
   if (!process.env.INTERNAL_SERVICE_TOKEN) {
     throw new Error('INTERNAL_SERVICE_TOKEN missing');
   }
+  if (!timestamp) {
+    throw new Error('Timestamp is required for HMAC signing');
+  }
+
+  const payload = `${timestamp}.${body}`;
 
   return crypto
     .createHmac('sha256', process.env.INTERNAL_SERVICE_TOKEN)
-    .update(body)
+    .update(payload)
     .digest('hex');
 };
 
+/**
+ * Builds the header block for every internal service call.
+ */
 const withContext = (req, extraHeaders = {}, payload = null) => {
   let body = '';
-
   try {
     body = payload ? JSON.stringify(payload) : '';
   } catch (err) {
     throw new Error(`Failed to serialize request payload for HMAC signing: ${err.message}`);
   }
 
-  const signature = signPayload(body);
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const signature = signPayload(body, timestamp);
 
   if (!signature) {
     throw new Error('Failed to generate HMAC signature');
@@ -87,19 +107,17 @@ const withContext = (req, extraHeaders = {}, payload = null) => {
 
   const headers = {
     'X-Signature': signature,
+    'X-Timestamp': timestamp,
     ...(extractIP(req) && { 'X-Real-IP': extractIP(req) }),
     ...extraHeaders,
   };
 
   const auth = headers.Authorization;
-
   if (auth) {
     if (!auth.startsWith('Bearer ')) {
       throw new Error('Malformed Authorization header');
     }
-
     const token = auth.slice(7).trim();
-
     if (!token || token === 'undefined' || token === 'null') {
       throw new Error('Invalid bearer token');
     }
@@ -107,19 +125,6 @@ const withContext = (req, extraHeaders = {}, payload = null) => {
 
   return { headers };
 };
-/**
- * Builds the header block for every internal service call.
- *
- * @param {object} req         - Express request object (for IP extraction)
- * @param {object} extraHeaders - e.g. { Authorization: 'Bearer <jwt>' }
- * @param {object|null} payload - Request body being sent, used for HMAC signing.
- *                                Pass null for GET requests (signs an empty object).
- *
- * Security model:
- *   X-Signature  → proves this request originated from our dashboard (not a random caller)
- *   X-Real-IP    → forwarded original client IP for audit logging in Go
- *   Authorization → user JWT, forwarded only on user-context routes
- */
 
 const getJWT = (req) => {
   return (
@@ -130,15 +135,20 @@ const getJWT = (req) => {
   );
 };
 
-
-
 // =============================================================================
 // 4. CENTRALIZED ERROR HANDLER
 // =============================================================================
 const handleEngineError = (error, context) => {
     if (error.response) {
-        console.error(`[Engine Error - ${context}]:`, error.response.data);
-        throw new Error(error.response.data?.error || 'The engine rejected the request.');
+        // Parse the new standardized Go APIResponse struct
+        const apiResponse = error.response.data;
+        
+        // Extract the standardized message (fallback to .error for legacy, then a default string)
+        const errorMessage = apiResponse?.message || apiResponse?.error || 'The engine rejected the request.';
+        const engineStatus = apiResponse?.status || error.response.status;
+
+        console.error(`[Engine Error - ${context}] Status: ${engineStatus} | Message:`, errorMessage);
+        throw new Error(errorMessage);
     } else if (error.request) {
         console.error(`[Engine Unreachable - ${context}]: No response received.`);
         throw new Error('A processing engine is currently unreachable. Please try again in a moment.');
@@ -150,21 +160,12 @@ const handleEngineError = (error, context) => {
 
 // =============================================================================
 // 5. API METHODS
-//
-// Signature pattern:
-//   - Service-only calls  → (args, req)              — no JWT, signed only
-//   - User-context calls  → (token, args..., req)    — JWT forwarded + signed
-//
-// Every call passes req so IP and signature are always forwarded.
 // =============================================================================
 
 // ----------------------------------------------------------------------------
 // IDENTITY SERVICE
 // ----------------------------------------------------------------------------
 
-/**
- * Login — no user context yet, but still signed to prove caller is our dashboard.
- */
 const requestOtp = async (msisdn, password, req) => {
     console.log('[Engine] requestOTP stage');
     const payload = { msisdn, password };
@@ -174,7 +175,7 @@ const requestOtp = async (msisdn, password, req) => {
             payload,
             withContext(req, {}, payload),
         );
-        return response.data;
+        return response.data; // Returns the full standard APIResponse struct
     } catch (error) {
         handleEngineError(error, 'requestOtp');
     }
@@ -193,34 +194,28 @@ const verifyOtp = async (msisdn, code, req) => {
         handleEngineError(error, 'verifyOtp');
     }
 };
+
 const createUser = async (req) => {
     try {
         const payload = req.body;
         const token = getJWT(req);
-            if (!req.token) {
-                throw new Error('Missing JWT token on request context');
-            }
+        if (!token) throw new Error('Missing JWT token on request context');
     
         const response = await clients.identity.post(
             '/api/v1/users',
             payload,
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            }, payload),
+            withContext(req, { Authorization: `Bearer ${token}` }, payload),
         );
         return response.data;
     } catch (error) {
-        handleEngineError(error, 'verifyOtp');
+        handleEngineError(error, 'createUser');
     }
 };
 
 const getAllClients = async (req) => {
     try {
         const token = getJWT(req); 
-        
-        if (!token) {
-            throw new Error('Missing JWT token on request context');
-        }
+        if (!token) throw new Error('Missing JWT token on request context');
 
         const response = await clients.identity.get(
             '/api/v1/clients',
@@ -235,17 +230,12 @@ const getAllClients = async (req) => {
 const getRoles = async (req) => {
     try {
         const token = getJWT(req);
-        if (!req.token) {
-            throw new Error('Missing JWT token on request context');
-        }
+        if (!token) throw new Error('Missing JWT token on request context');
 
         const response = await clients.identity.get(
             '/api/v1/roles',
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            }),
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
-
         return response.data;
     } catch (error) {
         handleEngineError(error, 'getRoles');
@@ -255,20 +245,15 @@ const getRoles = async (req) => {
 const listAvailablePermissions = async (req) => {
     try {
         const token = getJWT(req);
-        if (!req.token) {
-            throw new Error('Missing JWT token on request context');
-        }
+        if (!token) throw new Error('Missing JWT token on request context');
 
         const response = await clients.identity.get(
             '/api/v1/roles/permissions',
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            }),
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
-
         return response.data;
     } catch (error) {
-        handleEngineError(error, 'getRoles');
+        handleEngineError(error, 'listAvailablePermissions');
     }
 };
 
@@ -276,31 +261,24 @@ const getRolePermissions = async (req, roleId) => {
     try {
         const response = await clients.identity.get(
             `/api/v1/roles/${roleId}/permissions`,
-            withContext(req, {
-                Authorization: `Bearer ${req.token}`,
-            }),
+            withContext(req, { Authorization: `Bearer ${req.token}` }),
         );
         return response.data;
     } catch (error) {
-        console.error(`Error fetching permissions for role ${roleId} from Go Engine:`, error.message);
-        throw error;
+        handleEngineError(error, `getRolePermissions (${roleId})`);
     }
 };
 
 const createRole = async (req) => {
      try {
-    const token = getJWT(req);
-        if (!req.token) {
-            throw new Error('Missing JWT token on request context');
-        }
-    const payload = req.body;
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+        const payload = req.body;
    
         const response = await clients.identity.post(
             '/api/v1/roles',
             payload,
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            }, payload),
+            withContext(req, { Authorization: `Bearer ${token}` }, payload),
         );
         return response.data;
     } catch (error) {
@@ -335,19 +313,14 @@ const getDeveloperSettings = async (req) => {
 
 const assignRolePermissions = async (req) => {
     try {
-        const token = getJWT(req); // Assuming you use this helper based on your snippet
-        if (!token) {
-            throw new Error('Missing JWT token on request context');
-        }
-        
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
         const payload = req.body;
         
         const response = await clients.identity.put(
             '/api/v1/roles/assign',
             payload,
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            }, payload)
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
         );
         
         return response.data;
@@ -359,16 +332,11 @@ const assignRolePermissions = async (req) => {
 const deleteRole = async (req, roleId) => {
     try {
         const token = getJWT(req);
-        if (!token) {
-            throw new Error('Missing JWT token on request context');
-        }
+        if (!token) throw new Error('Missing JWT token on request context');
         
-        // Note: Adjust the URI if your Go endpoint uses a different path structure
         const response = await clients.identity.delete(
             `/api/v1/roles/${roleId}`,
-            withContext(req, {
-                Authorization: `Bearer ${token}`,
-            })
+            withContext(req, { Authorization: `Bearer ${token}` })
         );
         
         return response.data;
@@ -377,19 +345,13 @@ const deleteRole = async (req, roleId) => {
     }
 };
 
-// Don't forget to export them at the bottom of your wrapper file:
-// module.exports = { ...,  };
-
 
 // ----------------------------------------------------------------------------
 // BILLING SERVICE
 // ----------------------------------------------------------------------------
 
-/**
- * Service-only call — no JWT needed, signature is sufficient proof of origin.
- */
 const getClientBalance = async (req) => {
-    clientId = req.user.id
+    const clientId = req.user.id;
     try {
         const response = await clients.billing.get(
             `/api/v1/billing/balance/${clientId}`,
@@ -405,7 +367,7 @@ const getWalletHistory = async (req) => {
     const targetId = req.params.clientId;
     try {
         const response = await clients.billing.get(
-            `/api/v1/wallet/history/${targetClientId}`,
+            `/api/v1/wallet/history/${targetId}`,
             withContext(req, { Authorization: `Bearer ${req.token}` }),
         );
         return response.data;
@@ -415,20 +377,23 @@ const getWalletHistory = async (req) => {
 };
 
 // WIP: Replace mock with real billing call
+// Now conforms to the Go APIResponse standard
 const getWalletData = async (req) => {
-
-    const clientId = req.user.clientId;
-
+    const clientId = req.user?.clientId || 'MOCK_ID';
     console.log(`[Wrapper WIP] Returning mock wallet data for client ${clientId}`);
     return {
-        balance: 4500.50,
-        currency: 'USD',
-        transactions: [
-            { id: 'TX-9942', date: '2026-05-24', type: 'Credit', amount: 1000.00,  description: 'Stripe Top-Up',       status: 'Completed'  },
-            { id: 'TX-9941', date: '2026-05-22', type: 'Debit',  amount: -45.50,   description: 'Campaign: Q4 Promo',  status: 'Completed'  },
-            { id: 'TX-9940', date: '2026-05-20', type: 'Debit',  amount: -12.00,   description: 'Campaign: Test Run',  status: 'Completed'  },
-            { id: 'TX-9939', date: '2026-05-18', type: 'Credit', amount: 500.00,   description: 'Bank Transfer',       status: 'Processing' },
-        ],
+        status: 200,
+        message: "Wallet data retrieved successfully",
+        data: {
+            balance: 4500.50,
+            currency: 'USD',
+            transactions: [
+                { id: 'TX-9942', date: '2026-05-24', type: 'Credit', amount: 1000.00,  description: 'Stripe Top-Up',       status: 'Completed'  },
+                { id: 'TX-9941', date: '2026-05-22', type: 'Debit',  amount: -45.50,   description: 'Campaign: Q4 Promo',  status: 'Completed'  },
+                { id: 'TX-9940', date: '2026-05-20', type: 'Debit',  amount: -12.00,   description: 'Campaign: Test Run',  status: 'Completed'  },
+                { id: 'TX-9939', date: '2026-05-18', type: 'Credit', amount: 500.00,   description: 'Bank Transfer',       status: 'Processing' },
+            ],
+        }
     };
 };
 
@@ -437,19 +402,24 @@ const getWalletData = async (req) => {
 // ----------------------------------------------------------------------------
 
 // WIP: Replace mock with real SMS engine call
-const getDashboardStats = async ( req) => {
+// Now conforms to the Go APIResponse standard
+const getDashboardStats = async (req) => {
     console.log('[Wrapper WIP] Returning mock dashboard stats...');
     return {
-        summary:         { totalSent: 1250, pending: 25, failed: 3, balance: 4500.50 },
-        recentCampaigns: [
-            { id: 1, name: 'Q4 Promo',   status: 'Completed',  sent: 500 },
-            { id: 2, name: 'Easter Sale', status: 'Processing', sent: 120 },
-        ],
+        status: 200,
+        message: "Dashboard stats retrieved successfully",
+        data: {
+            summary:         { totalSent: 1250, pending: 25, failed: 3, balance: 4500.50 },
+            recentCampaigns: [
+                { id: 1, name: 'Q4 Promo',   status: 'Completed',  sent: 500 },
+                { id: 2, name: 'Easter Sale', status: 'Processing', sent: 120 },
+            ],
+        }
     };
 };
 
-const getRecentCampaigns = async ( req, options = { limit: 5 }) => {
-    clientId = req.user.id
+const getRecentCampaigns = async (req, options = { limit: 5 }) => {
+    const clientId = req.user.id;
     try {
         const response = await clients.sms.get(
             `/api/v1/campaigns/${clientId}`,
@@ -474,7 +444,7 @@ const startBulkCampaign = async (payload, req) => {
     }
 };
 
-const getContactGroups = async ( req) => {
+const getContactGroups = async (req) => {
     try {
         const response = await clients.sms.get(
             '/api/v1/contacts/groups',
@@ -486,7 +456,7 @@ const getContactGroups = async ( req) => {
     }
 };
 
-const createContactGroup = async ( groupData, req) => {
+const createContactGroup = async (groupData, req) => {
     try {
         const response = await clients.sms.post(
             '/api/v1/contacts/groups',
@@ -512,18 +482,23 @@ const getSenderIds = async (req) => {
 };
 
 // WIP: Replace mock with real SMS engine call
+// Now conforms to the Go APIResponse standard
 const getTemplates = async (req) => {
-    clientId = req.user.id
+    const clientId = req.user?.id || 'MOCK_ID';
     console.log(`[Wrapper WIP] Returning mock templates for client ${clientId}`);
-    return [
-        { id: 'TPL-001', name: 'Payment Reminder', content: 'Dear [Name], your bill of [Amount] is due on [Date].', status: 'Approved' },
-        { id: 'TPL-002', name: 'OTP Verification',  content: 'Your verification code is [Code]. Do not share this.', status: 'Approved' },
-        { id: 'TPL-003', name: 'Marketing Promo',   content: 'Flash Sale! Get 20% off using code [PromoCode].',      status: 'Pending'   },
-    ];
+    return {
+        status: 200,
+        message: "Templates retrieved successfully",
+        data: [
+            { id: 'TPL-001', name: 'Payment Reminder', content: 'Dear [Name], your bill of [Amount] is due on [Date].', status: 'Approved' },
+            { id: 'TPL-002', name: 'OTP Verification',  content: 'Your verification code is [Code]. Do not share this.', status: 'Approved' },
+            { id: 'TPL-003', name: 'Marketing Promo',   content: 'Flash Sale! Get 20% off using code [PromoCode].',      status: 'Pending'   },
+        ],
+        pagination: { total: 3, page: 1, limit: 10 }
+    };
 };
 
 const startCampaign = async (payload, req) => {
-
     try {
         const response = await clients.sms.post(    
             '/api/v1/campaigns/launch',
@@ -536,8 +511,7 @@ const startCampaign = async (payload, req) => {
     }
 };
 
-// V2
-// Start a standard or scheduled campaign
+// V2 Start a standard or scheduled campaign
 const launchCampaign = async (payload, req) => {
     try {
         const response = await clients.sms.post(
@@ -554,7 +528,7 @@ const launchCampaign = async (payload, req) => {
 const createGroup = async (groupData, req) => {
     try {
         const response = await clients.sms.post(
-            '/api/v1/contact/group/update', // Reusing the Go backend's group logic
+            '/api/v1/contact/group/update',
             groupData,
             withContext(req, { Authorization: `Bearer ${req.token}` })
         );
@@ -564,7 +538,7 @@ const createGroup = async (groupData, req) => {
     }
 };
 
-const addContacts= async (payload, req) => {
+const addContacts = async (payload, req) => {
     try {
         const response = await clients.sms.post(
             '/api/v1/contact/create',
@@ -584,9 +558,9 @@ module.exports = {
     // Identity
     requestOtp,    verifyOtp,
     getAllClients,
-    getUsers,createUser,
-    getRoles,createRole,deleteRole,
-    getRolePermissions,assignRolePermissions,
+    getUsers, createUser,
+    getRoles, createRole, deleteRole,
+    getRolePermissions, assignRolePermissions,
     listAvailablePermissions, 
     getDeveloperSettings,
 
@@ -597,12 +571,11 @@ module.exports = {
 
     // SMS / Campaigns
     getDashboardStats,
-    getRecentCampaigns,startBulkCampaign,startCampaign,
-    getContactGroups,createContactGroup,
+    getRecentCampaigns, startBulkCampaign, startCampaign, launchCampaign,
+    getContactGroups, createContactGroup, createGroup, addContacts,
     getSenderIds,
     getTemplates,
     
-
     // Direct client access (if needed by other modules)
     clients,
 };
