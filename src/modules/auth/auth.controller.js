@@ -1,4 +1,5 @@
 const goEngineWrapper = require('../../services/goEngineWrapper');
+const ws = require('../../services/webSocketService');
 
 // Renders the Nunjucks login page
 const renderLogin = (req, res) => {
@@ -41,6 +42,10 @@ const handleVerifyOtp = async (req, res) => {
             permissions: result.permissions,
             redirectUrl: '/dashboard'
         });
+        ws.connect(result.token)
+  .on('campaign.completed', (payload) => showToast(payload))
+  .on('campaign.progress',  (payload) => updateProgressBar(payload))
+  .on('system.alert',       (payload) => showAlert(payload));
     } catch (error) {
         res.status(401).json({ error: error.message });
     }
@@ -50,6 +55,7 @@ const handleVerifyOtp = async (req, res) => {
 const logout = (req, res) => {
     res.clearCookie('access_token');
     res.redirect('/login');
+    ws.disconnect();
 };
 
 module.exports = {

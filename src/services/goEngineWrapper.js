@@ -9,6 +9,7 @@ const services = {
     identity: { baseURL: process.env.IDENTITY_SERVICE_URL || 'http://localhost:4848' },
     billing:  { baseURL: process.env.BILLING_SERVICE_URL  || 'http://localhost:4849' },
     sms:      { baseURL: process.env.SMS_SERVICE_URL      || 'http://localhost:4850' },
+    websocket:{ baseURL: process.env.WEBSOCKET_SERVICE_URL|| 'http://localhost:8088' },
 };
 
 // =============================================================================
@@ -49,6 +50,7 @@ const clients = {
     identity: createServiceClient('identity'),
     billing:  createServiceClient('billing'),
     sms:      createServiceClient('sms'),
+    websocket:createServiceClient('websocket'),
 };
 
 // =============================================================================
@@ -551,6 +553,22 @@ const addContacts = async (payload, req) => {
     }
 };
 
+// ============================================================================
+// Notification Stubs
+// ============================================================================
+
+// Notifications — Go side handles admin vs client differentiation
+const getNotifications = (req, params = {}) =>
+    goGet(req.token, '/notifications', { params });
+
+const markNotificationRead = (req, id) =>
+    goPatch(req.token, `/notifications/${id}/read`);
+
+const markAllNotificationsRead = (req) =>
+    goPatch(req.token, '/notifications/read-all');
+
+
+
 // =============================================================================
 // EXPORTS
 // =============================================================================
@@ -576,6 +594,11 @@ module.exports = {
     getSenderIds,
     getTemplates,
     
+    // Notification
+    markAllNotificationsRead,markNotificationRead,
+    getNotifications,
+
+
     // Direct client access (if needed by other modules)
     clients,
 };

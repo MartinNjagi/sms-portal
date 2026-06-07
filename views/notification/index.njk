@@ -1,0 +1,110 @@
+{% extends "../layout-v2.njk" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="mb-0 fw-bold">Notification Centre</h4>
+            <small class="text-muted">
+                {% if user.role == 'ADMIN' %}
+                    All platform notifications
+                {% else %}
+                    Your recent notifications
+                {% endif %}
+            </small>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" id="mark-all-btn">
+            <i class="bi bi-check2-all me-1"></i> Mark all read
+        </button>
+    </div>
+
+    <div id="notif-centre-app">
+
+        {% if user.role == 'ADMIN' %}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body d-flex align-items-center gap-3 flex-wrap py-3">
+                <div style="min-width: 240px;">
+                    <label class="form-label text-muted mb-1" style="font-size: 12px;">Filter by user</label>
+                    <select class="form-select form-select-sm" id="user-filter">
+                        <option value="">All users</option>
+                        {% for u in notifications.users %}
+                        <option value="{{ u.id }}">{{ u.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="ms-auto text-muted" style="font-size: 13px;">
+                    <span id="notif-total">{{ notifications.total }}</span> notifications
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div id="notif-loading" class="text-center py-5 text-muted d-none">
+                    <div class="spinner-border spinner-border-sm me-2"></div> Loading...
+                </div>
+                <div id="notif-empty" class="text-center py-5 text-muted d-none">
+                    <i class="bi bi-bell-slash fs-3 d-block mb-2"></i>
+                    No notifications found
+                </div>
+                <table class="table table-hover mb-0" id="notif-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 12px;"></th>
+                            {% if user.role == 'ADMIN' %}<th>User</th>{% endif %}
+                            <th>Event</th>
+                            <th>Details</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="notif-tbody">
+                        {% for n in notifications.data %}
+                        <tr class="{{ 'table-primary bg-opacity-10' if not n.is_read }}" data-id="{{ n.id }}">
+                            <td>
+                                {% if not n.is_read %}
+                                <span class="notif-unread-dot"></span>
+                                {% endif %}
+                            </td>
+                            {% if user.role == 'ADMIN' %}
+                            <td>
+                                <span class="fw-medium">{{ n.username }}</span>
+                                <br><small class="text-muted">{{ n.user_id }}</small>
+                            </td>
+                            {% endif %}
+                            <td><span class="badge {{ n.event | eventBadgeClass }}">{{ n.event | eventLabel }}</span></td>
+                            <td class="text-muted" style="font-size: 13px;">{{ n | notifDesc }}</td>
+                            <td class="text-muted" style="font-size: 12px; white-space: nowrap;">{{ n.created_at | timeAgo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center" id="notif-pagination">
+                <button class="btn btn-sm btn-outline-secondary" id="prev-btn" disabled>
+                    <i class="bi bi-chevron-left"></i> Prev
+                </button>
+                <span class="text-muted" style="font-size: 13px;">
+                    Page <span id="current-page">1</span> of <span id="total-pages">{{ notifications.pages }}</span>
+                </span>
+                <button class="btn btn-sm btn-outline-secondary" id="next-btn">
+                    Next <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="/css/notifications.css">
+<script>
+    // Seed server-rendered data for JS to pick up
+    window.__NOTIF_IS_ADMIN__ = {{ 'true' if user.role == 'ADMIN' else 'false' }};
+    window.__NOTIF_DATA__     = {{ notifications | dump | safe }};
+</script>
+<script src="/js/customjs/notifications.js"></script>
+{% endblock %}

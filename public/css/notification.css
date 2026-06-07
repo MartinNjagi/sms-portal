@@ -1,0 +1,86 @@
+.notif-unread-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #0d6efd;
+}
+
+/* Bell dropdown panel */
+.notif-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 340px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, .1);
+    border-radius: 10px;
+    z-index: 1050;
+    overflow: hidden;
+}
+
+.notif-panel-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(0, 0, 0, .06);
+    font-size: 14px;
+}
+
+.notif-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(0, 0, 0, .04);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background .15s;
+}
+
+.notif-item:hover          { background: #f8f9fa; }
+.notif-item.unread         { background: #f0f6ff; }
+.notif-item .notif-title   { font-weight: 500; color: #212529; margin-bottom: 2px; }
+.notif-item .notif-desc    { color: #6c757d; line-height: 1.4; }
+.notif-item .notif-time    { font-size: 11px; color: #adb5bd; margin-top: 3px; }
+
+.notif-panel-footer {
+    padding: 8px;
+    border-top: 1px solid rgba(0, 0, 0, .06);
+    text-align: center;
+}
+
+/* Toast */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.notif-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, .1);
+    border-radius: 10px;
+    width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+    animation: toastIn .2s ease;
+}
+
+.notif-toast .toast-title { font-size: 13px; font-weight: 500; }
+.notif-toast .toast-msg   { font-size: 12px; color: #6c757d; margin-top: 2px; }
+
+@keyframes toastIn {
+    from { transform: translateX(40px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}

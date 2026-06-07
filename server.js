@@ -101,6 +101,8 @@ const roleRoutes = require('./src/modules/roles/role.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 const billingRoutes = require('./src/modules/billing/billing.routes');
 const renderError = require('./src/services/renderError');
+const sseRoutes = require('./src/modules/sse/sse.routes');
+const notifRoutes = require('./src/modules/notifications/notification.routes');
 
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
@@ -115,7 +117,10 @@ app.use('/clients', clientRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/accounts', billingRoutes);
 app.use('/users', userRoutes);   
-app.use('/roles', roleRoutes);   
+app.use('/roles', roleRoutes);
+app.use('/sse',sseRoutes); 
+app.use('/notifications', notifRoutes);
+
 
 app.get('/', (req, res) => {
     res.redirect('/login');
