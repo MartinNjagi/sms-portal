@@ -1,190 +1,159 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Socket.io (Connects to your Node.js BFF)
-    const socket = io();
+document.addEventListener('DOMContentLoaded', async () => {
+    
+    // ==========================================
+    // 1. INITIALIZATION & DATA FETCHING
+    // ==========================================
+    const campTargetType = document.getElementById('campTargetType');
+    const targetGroupWrapper = document.getElementById('targetGroupWrapper');
+    const targetCsvWrapper = document.getElementById('targetCsvWrapper');
+    const campMessage = document.getElementById('campMessage');
 
-    // DOM Elements - UI & Status
-    const uploadBtn = document.getElementById('startUploadBtn');
-    const statusDisplay = document.getElementById('uploadStatus');
-    const liveProgressCard = document.getElementById('liveProgressCard');
-
-    // DOM Elements - Form Inputs
-    const campaignNameInput = document.getElementById('campaignName');
-    const senderIdInput = document.getElementById('senderId');
-    const messageBox = document.getElementById('messageBox');
-    const useCsvRadio = document.getElementById('useCsv');
-    const groupSelect = document.getElementById('groupId');
-    const csvFileInput = document.getElementById('csvFileInput');
-
-    // Listen for WebSocket connection issues
-    socket.on('connect_error', (err) => {
-        console.error('Socket connection lost:', err.message);
-    });
-
-    uploadBtn.addEventListener('click', async () => {
-        // Extract base form data
-        const campaignName = campaignNameInput.value.trim() || 'Unnamed Campaign';
-        const senderId = senderIdInput.value;
-        const messageContent = messageBox.value.trim();
-        const isCsv = useCsvRadio.checked;
-
-        // 1. Common Validation Check
-        if (!senderId) return showError('Please select a valid Sender ID.');
-        if (!messageContent) return showError('Message content cannot be empty.');
-
-        // Update UI State
-        uploadBtn.disabled = true;
-        statusDisplay.classList.remove('d-none', 'alert-danger', 'alert-success');
-        statusDisplay.classList.add('alert-info', 'd-block');
-        liveProgressCard.style.display = 'none';
-
-        // 2. Branch Logic: CSV Upload vs. Saved Group
-        if (isCsv) {
-            const file = csvFileInput.files[0];
-            if (!file) {
-                uploadBtn.disabled = false;
-                return showError('Please select a CSV file to upload.');
-            }
-            statusDisplay.innerText = "Validating CSV file format...";
-            validateAndProcessCsv(file, campaignName, senderId, messageContent);
+    // Toggle between Group and CSV upload inputs
+    campTargetType.addEventListener('change', (e) => {
+        if (e.target.value === 'csv') {
+            targetGroupWrapper.classList.add('d-none');
+            targetCsvWrapper.classList.remove('d-none');
         } else {
-            const groupId = groupSelect.value;
-            if (!groupId) {
-                uploadBtn.disabled = false;
-                return showError('Please select a Saved Group from the dropdown.');
-            }
-            statusDisplay.innerText = "Preparing group campaign...";
-            
-            // Bypass S3 completely and trigger Go Engine directly
-            const payload = { campaignName, senderId, messageContent, groupId };
-            triggerCampaignBackend(payload);
+            targetGroupWrapper.classList.remove('d-none');
+            targetCsvWrapper.classList.add('d-none');
         }
     });
 
-    // --- CSV Specific Logic ---
-    function validateAndProcessCsv(file, campaignName, senderId, messageContent) {
-        Papa.parse(file, {
-            header: true,      
-            preview: 5,        // Only read the first 5 rows to save memory
-            skipEmptyLines: true,
-            complete: async function(results) {
-                const headers = results.meta.fields.map(h => h.toLowerCase().trim());
-                const hasPhoneColumn = headers.includes('phone') || headers.includes('msisdn') || headers.includes('number');
+    // Character Counter
+    campMessage.addEventListener('input', (e) => {
+        const len = e.target.value.length;
+        document.getElementById('charCount').innerText = `${len} Characters`;
+        document.getElementById('smsCount').innerText = `${Math.ceil(len / 160)} SMS Pages`;
+    });
 
-                if (!hasPhoneColumn) {
-                    uploadBtn.disabled = false;
-                    return showError('Validation Failed: Your CSV must contain a column named "Phone", "Number", or "MSISDN".');
-                }
-
-                if (results.data.length === 0) {
-                    uploadBtn.disabled = false;
-                    return showError('Validation Failed: The CSV appears to be empty.');
-                }
-
-                statusDisplay.innerText = "File verified. Requesting secure upload link...";
-                await uploadAndTrigger(file, campaignName, senderId, messageContent);
-            },
-            error: function(error) {
-                uploadBtn.disabled = false;
-                showError(`Error reading file: ${error.message}`);
-            }
+    // Fetch Dashboard Data (Balance, Outbox, Setup dropdowns)
+    try {
+        const res = await fetch('/messages/api/dashboard-data'); // Adjust to your actual BFF route for getMessageDashboardData
+        const { data } = await res.json();
+        
+        document.getElementById('stat-balance').innerText = data.balance.toFixed(2);
+        
+        // Populate Outbox Table
+        const tbody = document.getElementById('outboxTableBody');
+        tbody.innerHTML = '';
+        data.recentCampaigns.forEach(c => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${c.name}</strong></td>
+                    <td><span class="badge badge-${c.status === 'Completed' ? 'success' : 'warning'}">${c.status}</span></td>
+                    <td>${c.sent || 0}</td>
+                    <td>${c.failed || 0}</td>
+                    <td>${new Date().toLocaleDateString()}</td> <td><button class="btn btn-sm btn-outline-info">View</button></td>
+                </tr>
+            `;
         });
+        if(data.recentCampaigns.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No recent campaigns.</td></tr>';
+
+    } catch (error) {
+        console.error("Failed to load dashboard data", error);
     }
 
-    async function uploadAndTrigger(file, campaignName, senderId, messageContent) {
+    // ==========================================
+    // 2. THE CAMPAIGN TRIGGER ENGINE
+    // ==========================================
+    const launchForm = document.getElementById('form-launch-campaign');
+    
+    launchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('btn-submit-campaign');
+        const progress = document.getElementById('uploadProgress');
+        
+        const payload = {
+            campaignName: document.getElementById('campName').value,
+            senderId: document.getElementById('campSenderId').value,
+            messageContent: document.getElementById('campMessage').value,
+            targetType: campTargetType.value
+        };
+
+        submitBtn.disabled = true;
+
         try {
-            // GET PRE-SIGNED URL FROM NODE.JS BFF
-            const urlResponse = await fetch(`/api/messages/upload-url?fileName=${file.name}&fileType=${file.type}&estimatedRows=10000`);
-            const urlResult = await urlResponse.json();
-            
-            if (!urlResponse.ok) throw new Error(urlResult.error || 'Failed to get secure link.');
+            // --- SCENARIO A: SENDING TO A SAVED GROUP ---
+            if (payload.targetType === 'group') {
+                payload.groupId = document.getElementById('campGroupId').value;
+                if(!payload.groupId) throw new Error("Please select a group.");
 
-            statusDisplay.innerText = "Uploading straight to cloud storage (bypassing server)...";
+                submitBtn.innerText = 'Queuing Campaign...';
+                
+                // Hit your triggerCampaign BFF endpoint
+                const res = await fetch('/messages/api/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                if(!result.success) throw new Error(result.error);
+                
+                alert('Campaign queued successfully!');
+                location.reload();
+            } 
+            // --- SCENARIO B: UPLOADING A CSV ---
+            else {
+                const fileInput = document.getElementById('campCsvFile');
+                const file = fileInput.files[0];
+                if(!file) throw new Error("Please select a CSV file.");
 
-            // UPLOAD DIRECTLY TO S3/MINIO
-            const uploadResponse = await fetch(urlResult.data.uploadUrl, {
-                method: 'PUT',
-                body: file,
-                headers: { 'Content-Type': file.type }
-            });
+                progress.classList.remove('d-none');
+                submitBtn.innerText = 'Requesting Secure Upload...';
 
-            if (!uploadResponse.ok) throw new Error('Cloud storage rejected the file upload.');
+                // 1. Get Pre-signed S3 URL from Node BFF
+                const urlRes = await fetch(`/messages/api/upload-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`);
+                const urlData = await urlRes.json();
+                if (!urlData.success) throw new Error(urlData.error);
+                
+                const { uploadUrl, fileKey } = urlData.data;
 
-            statusDisplay.innerText = "Upload complete. Triggering Go Engine...";
+                // 2. Upload directly to S3 / MinIO
+                submitBtn.innerText = 'Uploading Target List...';
+                const uploadRes = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': file.type },
+                    body: file
+                });
+                if (!uploadRes.ok) throw new Error('Failed to upload file to storage bucket.');
 
-            // Send to Go Engine with the cloud storage fileKey
-            const payload = {
-                fileKey: urlResult.data.fileKey,
-                campaignName,
-                senderId,
-                messageContent
-            };
+                // 3. Trigger the Go Engine Background Processor
+                submitBtn.innerText = 'Launching Campaign...';
+                payload.fileKey = fileKey;
+                
+                // Hit your triggerGoEngine BFF endpoint
+                const triggerRes = await fetch('/messages/api/trigger-bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-            triggerCampaignBackend(payload);
+                const triggerData = await triggerRes.json();
+                if (!triggerData.success) throw new Error(triggerData.error);
 
-        } catch (err) {
-            uploadBtn.disabled = false;
-            showError(`Process failed: ${err.message}`);
+                alert('Bulk Campaign accepted and processing started!');
+                location.reload();
+            }
+
+        } catch (error) {
+            alert(error.message || 'An error occurred while launching the campaign.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Send Campaign';
+            progress.classList.add('d-none');
         }
-    }
+    });
 
-    // --- Core API Trigger & Socket Logic ---
-    async function triggerCampaignBackend(payload) {
-        try {
-            const triggerResponse = await fetch('/api/messages/process-campaign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload) // Payload contains either 'fileKey' or 'groupId'
-            });
-
-            const triggerResult = await triggerResponse.json();
-            
-            if (!triggerResponse.ok) throw new Error(triggerResult.error || 'Failed to trigger campaign.');
-
-            // Success UI Update
-            statusDisplay.innerText = "Campaign launched successfully! Watching live updates...";
-            statusDisplay.classList.replace('alert-info', 'alert-success');
-            liveProgressCard.style.display = 'block';
-
-            // Subscribe to real-time events for this specific client/campaign
-            socket.emit('join_campaign_room', triggerResult.data.clientId); 
-
-            socket.on('campaign_progress', (data) => {
-                if (data.campaignId === triggerResult.data.campaignId) {
-                    
-                    animateValue("wsSentCount", data.sent);
-                    animateValue("wsFailedCount", data.failed);
-
-                    if (data.status === 'completed') {
-                        statusDisplay.innerText = "Campaign Processing Complete!";
-                        uploadBtn.disabled = false;
-                        socket.off('campaign_progress'); // Memory cleanup
-                    }
-                }
-            });
-
-        } catch (err) {
-            uploadBtn.disabled = false;
-            showError(`Failed to trigger campaign: ${err.message}`);
-        }
-    }
-
-    // --- UI Helpers ---
-    function animateValue(id, targetValue) {
-        const obj = document.getElementById(id);
-        const currentValue = parseInt(obj.innerText.replace(/,/g, '')) || 0;
-        
-        if (currentValue === targetValue) return;
-        
-        obj.innerText = targetValue.toLocaleString();
-        
-        // Brief flash effect
-        obj.classList.add('text-success', 'scale-up');
-        setTimeout(() => obj.classList.remove('text-success', 'scale-up'), 300);
-    }
-
-    function showError(msg) {
-        statusDisplay.classList.remove('d-none', 'alert-info', 'alert-success');
-        statusDisplay.classList.add('alert-danger', 'd-block');
-        statusDisplay.innerText = msg;
-    }
+    // Basic Tab Logic (Vanilla JS fallback)
+    document.querySelectorAll('#campaignTabs .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+            this.classList.add('active');
+            document.querySelector(this.getAttribute('href')).classList.add('show', 'active');
+        });
+    });
 });

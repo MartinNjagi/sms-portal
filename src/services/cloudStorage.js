@@ -1,6 +1,7 @@
 const { 
     S3Client, 
     PutObjectCommand, 
+    GetObjectCommand,
     CreateBucketCommand, 
     HeadBucketCommand 
 } = require('@aws-sdk/client-s3');
@@ -38,7 +39,6 @@ const initializeStorage = async () => {
                 throw error;
             }
         }
-        // CORS configuration removed because MinIO handles it globally by default!
     } catch (error) {
         console.error('\n=== MINIO INITIALIZATION FAILED ===');
         console.error('Error Name:', error.name);
@@ -50,6 +50,8 @@ const initializeStorage = async () => {
 // ==========================================
 // 3. Application Helpers
 // ==========================================
+
+// For Uploads (Frontend to S3)
 const generatePresignedPutUrl = async (fileKey, contentType, expiresIn = 300) => {
     try {
         const command = new PutObjectCommand({
@@ -60,12 +62,29 @@ const generatePresignedPutUrl = async (fileKey, contentType, expiresIn = 300) =>
 
         return await getSignedUrl(s3Client, command, { expiresIn });
     } catch (error) {
-        console.error('Error generating pre-signed URL:', error);
+        console.error('Error generating pre-signed PUT URL:', error);
         throw new Error('Failed to generate secure upload link.');
+    }
+};
+
+// For Downloads (Go Engine pulling from S3)
+const generatePresignedGetUrl = async (fileKey, expiresIn = 3600) => {
+    try {
+        const command = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: fileKey,
+        });
+
+        // Expires in 1 hour by default to give the RabbitMQ queue plenty of time
+        return await getSignedUrl(s3Client, command, { expiresIn });
+    } catch (error) {
+        console.error('Error generating pre-signed GET URL:', error);
+        throw new Error('Failed to generate secure download link.');
     }
 };
 
 module.exports = {
     initializeStorage,
-    generatePresignedPutUrl
+    generatePresignedPutUrl,
+    generatePresignedGetUrl
 };

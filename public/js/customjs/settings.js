@@ -1,5 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
+    // ==========================================
+    // TAB NAVIGATION FIX
+    // ==========================================
+    const tabLinks = document.querySelectorAll('#settings-list-tab .list-group-item');
+    const tabPanes = document.querySelectorAll('.tab-content .tab-pane');
+
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // 1. Remove active classes from all links and panes
+            tabLinks.forEach(l => l.classList.remove('active'));
+            tabPanes.forEach(p => {
+                p.classList.remove('show', 'active');
+            });
+
+            // 2. Add active class to the clicked link
+            this.classList.add('active');
+
+            // 3. Find target pane and show it
+            const targetId = this.getAttribute('href');
+            const targetPane = document.querySelector(targetId);
+            if (targetPane) {
+                targetPane.classList.add('show', 'active');
+            }
+        });
+    });
+
+
+
     // ==========================================
     // SENDER ID MANAGEMENT
     // ==========================================

@@ -129,39 +129,80 @@ messageController.renderTemplates = async (req, res, next) => {
     }
 };
 
-messageController.triggerCampaign = async (req, res, next) => {
+// Serves the HTML view for the unified campaign dashboard
+messageController.renderBulkDashboard = async (req, res, next) => {
     try {
-        const { campaignName, senderId, messageContent, fileKey, groupId } = req.body;
-        
-        // Securely extract the Client ID from the JWT session
-        const clientId = req.user.clientId;
+        res.render('message/bulk.njk', {
+            title: 'Messaging Dashboard',
+            alias: 'messages', // Highlights the sidebar tab
+            user: req.user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
-        // Construct the payload for the Go Engine
-        const enginePayload = {
-            clientId,
-            campaignName,
-            senderId,
-            messageContent,
-            fileKey: fileKey || null, // Will be null if using a Group
-            groupId: groupId || null  // Will be null if using a CSV
+messageController.processCampaign = async (req, res, next) => {
+    try {
+        const { 
+            campaignName, 
+            senderId, 
+            messageContent, 
+            fileKey, 
+            groupId, 
+            scheduledFor // Frontend can optionally pass an ISO date string
+        } = req.body;
+
+        // 1. Convert S3 Key to a fully resolvable URL for Go's http.Get()
+        let fileUrl = null;
+        if (fileKey) {
+            fileUrl = await s3Service.generatePresignedGetUrl(fileKey);
+        }
+
+        // 2. Prepare the Go struct payload
+        // Maps directly to data.BulkCampaignRequest / data.ScheduleCampaignRequest
+        const goPayload = {
+            Name: campaignName,
+            SenderID: senderId,
+            ContactGroup: groupId ? parseInt(groupId, 10) : null,
+            FileURL: fileUrl,
+            // Assuming Go accepts the raw message body under 'TemplateName' if no strict template is used
+            // If your Go engine has a separate 'Message' field, map it there instead.
+            TemplateName: messageContent 
         };
 
-        // Forward the command to your Go microservice
-        const result = await goEngineWrapper.startCampaign(enginePayload,req);
+        let result;
 
-        // Respond to the browser so the Socket.io UI can start listening
-        res.status(200).json({
+        // 3. Route to the correct Go engine endpoint
+        if (scheduledFor) {
+            goPayload.ScheduledFor = scheduledFor;
+            result = await goEngineWrapper.scheduleCampaign(goPayload, req);
+        } else {
+            result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        }
+
+        // 4. Respond to the frontend
+        res.status(202).json({
             success: true,
-            message: "Campaign queued successfully.",
+            message: result.message || 'Campaign queued successfully',
             data: {
-                campaignId: result.campaignId, // Returned from Go
-                clientId: clientId
+                clientId: req.user.clientId // Passed back so UI can join the right Socket room
             }
         });
 
     } catch (error) {
-        console.error("[BFF] Campaign Trigger Error:", error.message);
-        res.status(500).json({ error: error.message || 'Failed to trigger campaign.' });
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Also expose an endpoint for the UI to poll the live stats
+messageController.getCampaignStats = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const stats = await goEngineWrapper.getCampaignStats(id, req);
+        res.status(200).json({ success: true, data: stats.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 

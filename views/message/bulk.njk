@@ -1,169 +1,144 @@
-{% extends "../layout-v2.njk" %}
+{% extends "layout-v2.njk" %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="mb-4">
-        <h2>{{ title }}</h2>
-        <p class="text-muted">Compose your message, select your audience, and track live delivery.</p>
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <h1>Messaging Dashboard</h1>
+    <div>
+        <a href="/messages/templates" class="btn btn-outline-secondary">Manage Templates</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 text-center py-3">
+            <h6 class="text-muted text-uppercase mb-1">Available Balance</h6>
+            <h3 class="text-success mb-0">KES <span id="stat-balance">--</span></h3>
+        </div>
+    </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="card shadow-sm border-0 p-4 mb-4">
-                
-                <h5 class="mb-3">1. Campaign Details</h5>
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Campaign Name</label>
-                        <input type="text" id="campaignName" class="form-control" placeholder="e.g., Q4 Promo" required>
+<ul class="nav nav-tabs mb-4" id="campaignTabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" id="compose-tab" data-toggle="tab" href="#compose" role="tab">Launch Campaign</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="outbox-tab" data-toggle="tab" href="#outbox" role="tab">Outbox & History</a>
+    </li>
+</ul>
+
+<div class="tab-content" id="campaignTabsContent">
+    
+    <div class="tab-pane fade show active" id="compose" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <form id="form-launch-campaign">
+                    <div class="row">
+                        <div class="col-md-5 border-right pr-4">
+                            <h5 class="mb-4">Campaign Details</h5>
+                            
+                            <div class="form-group mb-3">
+                                <label>Campaign Name</label>
+                                <input type="text" id="campName" class="form-control" placeholder="e.g., Easter Promo 2026" required>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label>Sender ID</label>
+                                <select id="campSenderId" class="form-control" required>
+                                    <option value="" disabled selected>Loading...</option>
+                                    </select>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label>Target Audience</label>
+                                <select id="campTargetType" class="form-control" required>
+                                    <option value="group">Saved Contact Group</option>
+                                    <option value="csv">Upload Custom CSV</option>
+                                </select>
+                            </div>
+
+                            <div id="targetGroupWrapper" class="form-group mb-3">
+                                <label>Select Group</label>
+                                <select id="campGroupId" class="form-control">
+                                    <option value="" disabled selected>Loading groups...</option>
+                                </select>
+                            </div>
+
+                            <div id="targetCsvWrapper" class="form-group mb-3 d-none">
+                                <label>CSV File (Phone Numbers)</label>
+                                <input type="file" id="campCsvFile" class="form-control" accept=".csv">
+                            </div>
+                        </div>
+
+                        <div class="col-md-7 pl-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h5 class="m-0">Message Content</h5>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#templateModal">Use Template</button>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <textarea id="campMessage" class="form-control" rows="8" placeholder="Type your message here..." required></textarea>
+                                <div class="d-flex justify-content-between mt-2 text-muted small">
+                                    <span id="charCount">0 Characters</span>
+                                    <span id="smsCount">0 SMS Pages</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="btn-submit-campaign" class="btn btn-primary btn-lg w-100 mt-3">
+                                Send Campaign
+                            </button>
+                            
+                            <div class="progress mt-3 d-none" id="uploadProgress" style="height: 10px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold">Sender ID</label>
-                        <select id="senderId" class="form-select">
-                            <option value="InfoSMS">InfoSMS</option>
-                            <option value="PromoAlert">PromoAlert</option>
-                        </select>
-                    </div>
-                </div>
-
-                <hr class="my-4 text-muted">
-
-                <h5 class="mb-3">2. Choose Audience</h5>
-                <div class="mb-3 bg-light p-3 rounded">
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="audienceType" id="useCsv" value="csv" checked onchange="toggleAudience()">
-                        <label class="form-check-label fw-bold" for="useCsv">Upload CSV File</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="audienceType" id="useGroup" value="group" onchange="toggleAudience()">
-                        <label class="form-check-label fw-bold" for="useGroup">Use Saved Group</label>
-                    </div>
-                </div>
-
-                <div class="mb-4" id="csvUploader">
-                    <label for="csvFileInput" class="form-label">Upload Contacts</label>
-                    <input type="file" id="csvFileInput" accept=".csv" class="form-control border-primary">
-                    <small class="text-muted d-block mt-1">File must contain a column named <strong>"Phone"</strong> or <strong>"MSISDN"</strong>. Max size: 100MB.</small>
-                </div>
-
-                <div class="mb-4 d-none" id="groupSelector">
-                    <label class="form-label">Select Saved Group</label>
-                    <select class="form-select" id="groupId">
-                        <option value="" selected disabled>-- Select a Contact Group --</option>
-                        {% for group in groups %}
-                            <option value="{{ group.id }}">{{ group.name }} ({{ group.contactCount }} contacts)</option>
-                        {% else %}
-                            <option disabled>No groups available. Please create one in Address Book.</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <hr class="my-4 text-muted">
-
-                <h5 class="mb-3">3. Compose Message</h5>
-                
-                <div class="mb-3">
-                    <select class="form-select" id="templateSelector" onchange="applyTemplate()">
-                        <option value="">-- Start from Scratch or Select a Template --</option>
-                        {% for tpl in templates %}
-                            {% if tpl.status == 'Approved' %}
-                                <option value="{{ tpl.content }}">{{ tpl.name }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-4">
-                    <textarea class="form-control font-monospace" id="messageBox" rows="5" placeholder="Type your message here..." required onkeyup="updateCharCount()"></textarea>
-                    <div class="d-flex justify-content-between mt-2">
-                        <small class="text-muted">Dynamic variables (e.g., [Name]) supported for CSV uploads.</small>
-                        <small id="charCount" class="badge bg-secondary">0 chars | 1 SMS</small>
-                    </div>
-                </div>
-
-                <div id="uploadStatus" class="alert alert-info d-none fw-bold" role="alert"></div>
-
-                <div class="text-end">
-                    <button id="startUploadBtn" class="btn btn-primary px-5 py-2 fw-bold text-uppercase">Process & Send Campaign</button>
-                </div>
+                </form>
             </div>
         </div>
+    </div>
 
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 p-4 bg-light mb-4">
-                <h6 class="fw-bold text-uppercase mb-3">Pre-Flight Checklist</h6>
-                <ul class="list-unstyled mb-0 text-muted" style="font-size: 0.95em;">
-                    <li class="mb-2"><span class="text-success me-2">✔</span> Balance is sufficient</li>
-                    <li class="mb-2"><span class="text-success me-2">✔</span> Sender ID is verified</li>
-                    <li class="mb-2"><span class="text-warning me-2">⚠</span> Message avoids spam keywords</li>
-                    <li><span class="text-warning me-2">⚠</span> Phone numbers include country codes</li>
-                </ul>
+    <div class="tab-pane fade" id="outbox" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Campaign Name</th>
+                            <th>Status</th>
+                            <th>Sent</th>
+                            <th>Failed</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outboxTableBody">
+                        <tr><td colspan="6" class="text-center py-4">Loading history...</td></tr>
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
 
-            <div id="liveProgressCard" class="card shadow-sm border-0 border-top border-primary border-4 p-4" style="display: none;">
-                <h5 class="fw-bold text-primary mb-3">
-                    <span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span>
-                    Live Broadcast
-                </h5>
-                
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="text-muted fw-bold">Successfully Sent</span>
-                    <h3 class="text-success mb-0" id="wsSentCount">0</h3>
-                </div>
-                
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="text-muted fw-bold">Failed / Rejected</span>
-                    <h3 class="text-danger mb-0" id="wsFailedCount">0</h3>
+</div>
+
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Template</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group" id="templateList">
+                    <p class="text-center text-muted">Loading templates...</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Toggle between CSV Upload and Saved Group
-    function toggleAudience() {
-        const isCsv = document.getElementById('useCsv').checked;
-        document.getElementById('csvUploader').classList.toggle('d-none', !isCsv);
-        document.getElementById('groupSelector').classList.toggle('d-none', isCsv);
-    }
-
-    // Inject Template Text
-    function applyTemplate() {
-        const templateContent = document.getElementById('templateSelector').value;
-        const messageBox = document.getElementById('messageBox');
-        if (templateContent) {
-            messageBox.value = templateContent;
-            updateCharCount();
-        }
-    }
-
-    // Standard GSM-7 SMS Character Math
-    function updateCharCount() {
-        const text = document.getElementById('messageBox').value;
-        const count = text.length;
-        let smsCount = 1;
-        
-        if (count > 160) {
-            smsCount = Math.ceil(count / 153);
-        }
-        
-        document.getElementById('charCount').innerText = `${count} chars | ${smsCount} SMS`;
-        
-        if (smsCount > 1) {
-            document.getElementById('charCount').classList.replace('bg-secondary', 'bg-warning');
-            document.getElementById('charCount').classList.add('text-dark');
-        } else {
-            document.getElementById('charCount').classList.replace('bg-warning', 'bg-secondary');
-            document.getElementById('charCount').classList.remove('text-dark');
-        }
-    }
-</script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-
 <script src="/js/customjs/bulk-upload.js"></script>
 {% endblock %}

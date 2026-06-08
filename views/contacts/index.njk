@@ -60,10 +60,50 @@
                         <label class="form-label">Group Name</label>
                         <input type="text" class="form-control" name="groupName" placeholder="e.g., VIP Customers" required>
                     </div>
-                    <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Save Group (WIP)</button>
+                    <div class="mb-3">
+                        <label class="form-label">Group Description</label>
+                        <input type="text" class="form-control" name="groupDescription" placeholder="e.g., >= 100,000 USD">
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Save Group</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="importContactsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Import Contacts (CSV)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-import-csv">
+                    <div class="mb-3">
+                        <label class="form-label">Destination Group</label>
+                        <select class="form-select" id="importGroupId" required>
+                            <option value="" disabled selected>Select a group...</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">CSV File</label>
+                        <input type="file" class="form-control" id="importCsvFile" accept=".csv" required>
+                        <div class="form-text">Upload a CSV containing your contact phone numbers. Max 2000 rows for instant import; larger files will be processed in the background.</div>
+                    </div>
+                    
+                    <div class="progress mb-3 d-none" id="importProgressContainer" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated w-100" id="importProgressBar"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" id="btn-submit-import">Upload & Import</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

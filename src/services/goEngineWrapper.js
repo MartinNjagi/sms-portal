@@ -57,6 +57,9 @@ const clients = {
 // 3. SECURITY HELPERS
 // =============================================================================
 
+let lastGeneratedUnix = 0;
+let microOffset = 0;
+
 /**
  * Extracts the real client IP from an Express request.
  * Relies on nginx setting X-Real-IP before the request reaches Node.
@@ -409,77 +412,83 @@ const getWalletData = async (req) => {
 // SMS / CAMPAIGN SERVICE
 // ----------------------------------------------------------------------------
 
-// WIP: Replace mock with real SMS engine call
-// Now conforms to the Go APIResponse standard
-const getDashboardStats = async (req) => {
-    console.log('[Wrapper WIP] Returning mock dashboard stats...');
-    return {
-        status: 200,
-        message: "Dashboard stats retrieved successfully",
-        data: {
-            summary:         { totalSent: 1250, pending: 25, failed: 3, balance: 4500.50 },
-            recentCampaigns: [
-                { id: 1, name: 'Q4 Promo',   status: 'Completed',  sent: 500 },
-                { id: 2, name: 'Easter Sale', status: 'Processing', sent: 120 },
-            ],
-        }
-    };
-};
+// --- CAMPAIGN MANAGEMENT ---
 
-const getRecentCampaigns = async (req, options = { limit: 5 }) => {
-    const clientId = req.user.id;
+const listCampaigns = async (req, page = 1, limit = 10) => {
     try {
         const response = await clients.sms.get(
-            `/api/v1/campaigns/${clientId}`,
-            { ...withContext(req), params: { limit: options.limit } },
+            `/api/v1/campaigns?page=${page}&limit=${limit}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'getRecentCampaigns');
-    }
+    } catch (error) { handleEngineError(error, 'listCampaigns'); }
 };
 
-const startBulkCampaign = async (payload, req) => {
-    try {
-        const response = await clients.sms.post(
-            '/api/v1/campaigns/process',
-            payload,
-            withContext(req, {}, payload),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'startBulkCampaign');
-    }
-};
-
-
-
-const startCampaign = async (payload, req) => {
-    try {
-        const response = await clients.sms.post(    
-            '/api/v1/campaigns/launch',
-            payload,
-            withContext(req, { Authorization: `Bearer ${req.token}` }, payload),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'startCampaign');
-    }
-};
-
-// V2 Start a standard or scheduled campaign
-const launchCampaign = async (payload, req) => {
+const launchBulkCampaign = async (payload, req) => {
     try {
         const response = await clients.sms.post(
             '/api/v1/campaigns/launch',
             payload,
-            withContext(req, { Authorization: `Bearer ${req.token}` }, payload)
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'campaignService.launch');
-    }
+    } catch (error) { handleEngineError(error, 'launchBulkCampaign'); }
 };
+
+const scheduleCampaign = async (payload, req) => {
+    try {
+        const response = await clients.sms.post(
+            '/api/v1/campaigns/schedule',
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'scheduleCampaign'); }
+};
+
+const editCampaign = async (id, payload, req) => {
+    try {
+        const response = await clients.sms.patch(
+            `/api/v1/campaigns/${id}`,
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'editCampaign'); }
+};
+
+const deleteCampaign = async (id, req) => {
+    try {
+        const response = await clients.sms.delete(
+            `/api/v1/campaigns/${id}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteCampaign'); }
+};
+
+const triggerScheduledCampaign = async (id, req) => {
+    try {
+        // Based on your Go controller: TriggerProcessing handles POST /api/v1/campaigns/:id
+        const response = await clients.sms.post(
+            `/api/v1/campaigns/${id}`, 
+            {}, 
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'triggerScheduledCampaign'); }
+};
+
+const getCampaignStats = async (id, req) => {
+    try {
+        const response = await clients.sms.get(
+            `/api/v1/campaigns/${id}/stats`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'getCampaignStats'); }
+};
+
 // --- CONTACTS & ADDRESS BOOK ---
 
 const getContactGroups = async (req) => {
@@ -554,12 +563,24 @@ const addContacts = async (payload, req) => {
     try {
         const token = getJWT(req);
         const response = await clients.sms.post(
-            '/api/v1/contacts/create',
-            payload,
+            '/api/v1/contact/create', // Updated to match Go routing
+            payload, // { group_id: int, contacts: [] }
             withContext(req, { Authorization: `Bearer ${token}` }, payload)
         );
         return response.data;
     } catch (error) { handleEngineError(error, 'addContacts'); }
+};
+
+const uploadContactsCSV = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.post(
+            '/api/v1/contacts/upload-csv',
+            payload, // { GroupID: int, FileURL: "string" }
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'uploadContactsCSV'); }
 };
 
 const updateContact = async (phoneId, req) => {
@@ -736,8 +757,9 @@ module.exports = {
     getWalletData,
 
     // SMS / Campaigns
-    getDashboardStats,
-    getRecentCampaigns, startBulkCampaign, startCampaign, launchCampaign,
+    
+    listCampaigns, getCampaignStats, launchBulkCampaign,deleteCampaign,
+    scheduleCampaign,triggerScheduledCampaign,editCampaign,
     getSenderIds,createSenderId,deleteSenderId,approveSenderId,
     getTemplates,createTemplate,updateTemplate,deleteTemplate,approveTemplate,
     getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,

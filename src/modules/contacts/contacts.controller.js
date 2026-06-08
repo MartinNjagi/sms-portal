@@ -1,4 +1,5 @@
 const goEngineWrapper = require('../../services/goEngineWrapper');
+const s3Service = require('../../services/cloudStorage');
 
 const contactsController = {};
 
@@ -88,6 +89,41 @@ contactsController.deleteContact = async (req, res, next) => {
         res.status(200).json({ success: true, message: 'Contact deleted.' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+// 1. Get Presigned URL for Contacts CSV
+contactsController.getUploadUrl = async (req, res, next) => {
+    try {
+        const { fileName, fileType } = req.query;
+        if (!fileName || !fileType) return res.status(400).json({ error: 'Missing file details.' });
+
+        const uniqueFileKey = `contacts/${req.user.clientId}/${Date.now()}_${fileName}`;
+        const signedUrl = await s3Service.generatePresignedPutUrl(uniqueFileKey, fileType);
+
+        res.status(200).json({ success: true, data: { uploadUrl: signedUrl, fileKey: uniqueFileKey } });
+    } catch (error) { next(error); }
+};
+
+// 2. Trigger Go Engine Async Queue
+contactsController.triggerCsvImport = async (req, res, next) => {
+    try {
+        const { fileKey, groupId } = req.body;
+        if (!fileKey || !groupId) return res.status(400).json({ error: 'Missing parameters.' });
+
+        // Generate a Pre-signed GET URL that Go can download via http.Get()
+        // (Assuming your s3Service has this method. It's the standard pair to generatePresignedPutUrl)
+        const downloadUrl = await s3Service.generatePresignedGetUrl(fileKey);
+
+        // Pass the fully accessible URL to Go
+        const result = await goEngineWrapper.uploadContactsCSV({
+            GroupID: parseInt(groupId, 10),
+            FileURL: downloadUrl 
+        }, req);
+
+        res.status(202).json({ success: true, message: result.message });
+    } catch (error) { 
+        next(error); 
     }
 };
 
