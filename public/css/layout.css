@@ -112,3 +112,16 @@ body {
     #content { padding: 15px; }
     .top-nav { padding: 12px 15px; margin-bottom: 20px; }
 }
+
+
+.badge-pending {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffe69c;
+}
+
+.badge-active {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #a3cfbb;
+}

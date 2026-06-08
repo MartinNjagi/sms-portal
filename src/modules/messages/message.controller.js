@@ -116,7 +116,7 @@ messageController.triggerGoEngine = async (req, res, next) => {
 messageController.renderTemplates = async (req, res, next) => {
     try {
         const clientId = req.user.clientId;
-        const templates = await goEngineWrapper.getTemplates(req.token, clientId);
+        const templates = await goEngineWrapper.getTemplates(req);
         
         res.render('messages/templates.njk', { 
             title: 'Message Templates',

@@ -7,7 +7,7 @@ const crypto = require('crypto');
 // =============================================================================
 const services = {
     identity: { baseURL: process.env.IDENTITY_SERVICE_URL || 'http://localhost:4848' },
-    billing:  { baseURL: process.env.BILLING_SERVICE_URL  || 'http://localhost:4849' },
+    wallet:  { baseURL: process.env.WALLET_SERVICE_URL  || 'http://localhost:4849' },
     sms:      { baseURL: process.env.SMS_SERVICE_URL      || 'http://localhost:4850' },
     websocket:{ baseURL: process.env.WEBSOCKET_SERVICE_URL|| 'http://localhost:8088' },
 };
@@ -48,7 +48,7 @@ const createServiceClient = (serviceName) => {
 
 const clients = {
     identity: createServiceClient('identity'),
-    billing:  createServiceClient('billing'),
+    wallet:  createServiceClient('wallet'),
     sms:      createServiceClient('sms'),
     websocket:createServiceClient('websocket'),
 };
@@ -349,14 +349,14 @@ const deleteRole = async (req, roleId) => {
 
 
 // ----------------------------------------------------------------------------
-// BILLING SERVICE
+// WALLET SERVICE
 // ----------------------------------------------------------------------------
 
 const getClientBalance = async (req) => {
     const clientId = req.user.id;
     try {
-        const response = await clients.billing.get(
-            `/api/v1/billing/balance/${clientId}`,
+        const response = await clients.wallet.get(
+            `/api/v1/wallet/balance/${clientId}`,
             withContext(req),
         );
         return response.data;
@@ -368,7 +368,7 @@ const getClientBalance = async (req) => {
 const getWalletHistory = async (req) => {
     const targetId = req.params.clientId;
     try {
-        const response = await clients.billing.get(
+        const response = await clients.wallet.get(
             `/api/v1/wallet/history/${targetId}`,
             withContext(req, { Authorization: `Bearer ${req.token}` }),
         );
@@ -378,25 +378,31 @@ const getWalletHistory = async (req) => {
     }
 };
 
-// WIP: Replace mock with real billing call
-// Now conforms to the Go APIResponse standard
 const getWalletData = async (req) => {
-    const clientId = req.user?.clientId || 'MOCK_ID';
-    console.log(`[Wrapper WIP] Returning mock wallet data for client ${clientId}`);
-    return {
-        status: 200,
-        message: "Wallet data retrieved successfully",
-        data: {
-            balance: 4500.50,
-            currency: 'USD',
-            transactions: [
-                { id: 'TX-9942', date: '2026-05-24', type: 'Credit', amount: 1000.00,  description: 'Stripe Top-Up',       status: 'Completed'  },
-                { id: 'TX-9941', date: '2026-05-22', type: 'Debit',  amount: -45.50,   description: 'Campaign: Q4 Promo',  status: 'Completed'  },
-                { id: 'TX-9940', date: '2026-05-20', type: 'Debit',  amount: -12.00,   description: 'Campaign: Test Run',  status: 'Completed'  },
-                { id: 'TX-9939', date: '2026-05-18', type: 'Credit', amount: 500.00,   description: 'Bank Transfer',       status: 'Processing' },
-            ],
-        }
-    };
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        // Fetch balance and ledger history concurrently from Go
+        const [balanceRes, ledgerRes] = await Promise.all([
+            clients.wallet.get('/api/v1/wallet/balance', withContext(req, { Authorization: `Bearer ${token}` })),
+            clients.wallet.get('/api/v1/wallet/ledger', withContext(req, { Authorization: `Bearer ${token}` }))
+        ]);
+
+        // Reconstruct the payload to match the shape the frontend is expecting
+        return {
+            status: 200,
+            message: "Wallet data retrieved successfully",
+            data: {
+                // Adjust these paths based on your Go struct's exact JSON shape
+                balance: balanceRes.data?.data?.balance || 0,
+                currency: balanceRes.data?.data?.currency || 'KES',
+                transactions: ledgerRes.data?.data || [] 
+            }
+        };
+    } catch (error) {
+        handleEngineError(error, 'getWalletData');
+    }
 };
 
 // ----------------------------------------------------------------------------
@@ -446,31 +452,6 @@ const startBulkCampaign = async (payload, req) => {
     }
 };
 
-const getContactGroups = async (req) => {
-    try {
-        const response = await clients.sms.get(
-            '/api/v1/contacts/groups',
-            withContext(req, { Authorization: `Bearer ${req.token}` }),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'getContactGroups');
-    }
-};
-
-const createContactGroup = async (groupData, req) => {
-    try {
-        const response = await clients.sms.post(
-            '/api/v1/contacts/groups',
-            groupData,
-            withContext(req, { Authorization: `Bearer ${req.token}` }, groupData),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'createContactGroup');
-    }
-};
-
 const getSenderIds = async (req) => {
     try {
         const response = await clients.sms.get(
@@ -483,21 +464,20 @@ const getSenderIds = async (req) => {
     }
 };
 
-// WIP: Replace mock with real SMS engine call
-// Now conforms to the Go APIResponse standard
 const getTemplates = async (req) => {
-    const clientId = req.user?.id || 'MOCK_ID';
-    console.log(`[Wrapper WIP] Returning mock templates for client ${clientId}`);
-    return {
-        status: 200,
-        message: "Templates retrieved successfully",
-        data: [
-            { id: 'TPL-001', name: 'Payment Reminder', content: 'Dear [Name], your bill of [Amount] is due on [Date].', status: 'Approved' },
-            { id: 'TPL-002', name: 'OTP Verification',  content: 'Your verification code is [Code]. Do not share this.', status: 'Approved' },
-            { id: 'TPL-003', name: 'Marketing Promo',   content: 'Flash Sale! Get 20% off using code [PromoCode].',      status: 'Pending'   },
-        ],
-        pagination: { total: 3, page: 1, limit: 10 }
-    };
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.sms.get(
+            '/api/v1/settings/templates',
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'getTemplates');
+    }
 };
 
 const startCampaign = async (payload, req) => {
@@ -526,31 +506,108 @@ const launchCampaign = async (payload, req) => {
         handleEngineError(error, 'campaignService.launch');
     }
 };
+// --- CONTACTS & ADDRESS BOOK ---
 
-const createGroup = async (groupData, req) => {
+const getContactGroups = async (req) => {
     try {
-        const response = await clients.sms.post(
-            '/api/v1/contact/group/update',
-            groupData,
-            withContext(req, { Authorization: `Bearer ${req.token}` })
+        const token = getJWT(req);
+        const response = await clients.sms.get(
+            '/api/v1/contacts/groups',
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'addressBookService.createGroup');
-    }
+    } catch (error) { handleEngineError(error, 'getContactGroups'); }
+};
+
+const createContactGroup = async (groupData, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.post(
+            '/api/v1/contacts/groups',
+            groupData,
+            withContext(req, { Authorization: `Bearer ${token}` }, groupData),
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'createContactGroup'); }
+};
+
+const updateContactGroup = async (groupId, groupData, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.put(
+            `/api/v1/contacts/groups/${groupId}`,
+            groupData,
+            withContext(req, { Authorization: `Bearer ${token}` }, groupData)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateContactGroup'); }
+};
+
+const deleteContactGroup = async (groupId, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.delete(
+            `/api/v1/contacts/groups/${groupId}`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteContactGroup'); }
+};
+
+const getContactsByGroup = async (groupId, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.get(
+            `/api/v1/contacts/groups/${groupId}/contacts`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'getContactsByGroup'); }
+};
+
+const listContacts = async (req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.get(
+            '/api/v1/contacts',
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'listContacts'); }
 };
 
 const addContacts = async (payload, req) => {
     try {
+        const token = getJWT(req);
         const response = await clients.sms.post(
-            '/api/v1/contact/create',
+            '/api/v1/contacts/create',
             payload,
-            withContext(req, { Authorization: `Bearer ${req.token}` })
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'addressBookService.addContacts');
-    }
+    } catch (error) { handleEngineError(error, 'addContacts'); }
+};
+
+const updateContact = async (phoneId, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.put(
+            `/api/v1/contacts/${phoneId}`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteContact'); }
+};
+
+const deleteContact = async (phoneId, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.delete(
+            `/api/v1/contacts/${phoneId}`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteContact'); }
 };
 
 // ============================================================================
@@ -582,7 +639,7 @@ module.exports = {
     listAvailablePermissions, 
     getDeveloperSettings,
 
-    // Billing
+    // wallet
     getClientBalance,
     getWalletHistory,
     getWalletData,
@@ -590,9 +647,10 @@ module.exports = {
     // SMS / Campaigns
     getDashboardStats,
     getRecentCampaigns, startBulkCampaign, startCampaign, launchCampaign,
-    getContactGroups, createContactGroup, createGroup, addContacts,
     getSenderIds,
     getTemplates,
+    getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,
+    getContactsByGroup,listContacts,addContacts,updateContact,deleteContact,
     
     // Notification
     markAllNotificationsRead,markNotificationRead,

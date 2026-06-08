@@ -5,14 +5,14 @@ const renderWallet = async (req, res, next) => {
     try {
         const clientId = req.user.clientId;
         
-        // Fetch the mock wallet data using the logged-in user's client ID
+        // Fetch the wallet data using the logged-in user's client ID
         const walletData = await goEngineWrapper.getWalletData(req);
         
         res.render('billing/index.njk', { 
             title: 'My Wallet & Billing',
             alias: 'billing', // This ensures the sidebar link highlights correctly
             user: req.user,
-            wallet: walletData
+            wallet: walletData.data
         });
     } catch (error) {
         next(error);

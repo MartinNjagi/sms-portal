@@ -103,12 +103,12 @@ const billingRoutes = require('./src/modules/billing/billing.routes');
 const renderError = require('./src/services/renderError');
 const sseRoutes = require('./src/modules/sse/sse.routes');
 const notifRoutes = require('./src/modules/notifications/notification.routes');
+const contactRoutes = require('./src/modules/contacts/contacts.routes');
 
 // --- Feature Modules (BFF Routes) ---
 app.get('/login', authController.renderLogin);
 app.get('/logout', authController.logout);
 app.get('/dashboard', requireAuth, dashboardController.renderDashboard);
-app.get('/contacts', requireAuth, contactsController.renderAddressBook);
 app.use('/api/auth', authRoutes);             // Handles /login, /logout
 //app.use('/dashboard', dashboardRoutes); // Handles /dashboard
 app.use('/messages', messageRoutes); 

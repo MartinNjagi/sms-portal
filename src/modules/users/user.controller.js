@@ -6,10 +6,11 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 const viewMyTeam = async (req, res, next) => {
     try {
         const users = await goEngineWrapper.getUsers(req, null);
+      //  console.log("ResponseUserQuery",users);
         res.render('users/index.njk', { 
             title: 'My Team',
             alias: 'my-team',
-            users,
+            users: users.data,
             user: req.user
         });
     } catch (error) {
@@ -24,7 +25,7 @@ const viewClientUsers = async (req, res, next) => {
         res.render('users/index.njk', { 
             title: `Managing Users (Client #${targetClientId})`,
             alias: 'clients',
-            users,
+            users: users.data,
             user: req.user,
             targetClientId 
         });

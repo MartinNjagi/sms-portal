@@ -5,11 +5,11 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 const viewRoles = async (req, res, next) => {
     try {
         const roles = await goEngineWrapper.getRoles(req, req.user.client_id);
-        
+        const roleData = roles.data
         // Strip the superAdmin role (id: 1) for any client other than client_id 1
         const filteredRoles = req.user.client_id !== 1
-            ? roles.filter(role => role.id !== 1)
-            : roles;
+            ? roleData.filter(role => role.id !== 1)
+            : roleData;
         
         res.render('roles/index.njk', { 
             title: 'Role Management',
@@ -27,7 +27,7 @@ const viewRolePermissions = async (req, res, next) => {
         const roleId = req.params.id;
         const permissions = await goEngineWrapper.getRolePermissions(req, roleId);
         
-        res.json(permissions);
+        res.json(permissions.data);
     } catch (error) {
         res.status(error.response?.status || 500).json({ 
             message: "Failed to fetch permissions for this role" 

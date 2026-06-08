@@ -1,5 +1,4 @@
 const goEngineWrapper = require('../../services/goEngineWrapper');
-const ws = require('../../services/webSocketService');
 
 // Renders the Nunjucks login page
 const renderLogin = (req, res) => {
@@ -24,9 +23,10 @@ const handleVerifyOtp = async (req, res) => {
     try {
         const { msisdn, code } = req.body;
         const result = await goEngineWrapper.verifyOtp(msisdn, code, req);
+        const resultData = result.data
 
         // 1. The BFF catches result.token and HIDES it inside an encrypted cookie
-        res.cookie('access_token', result.token, {
+        res.cookie('access_token', resultData.token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Strict',
@@ -37,15 +37,11 @@ const handleVerifyOtp = async (req, res) => {
         // 2. Send the success response to the browser to trigger the redirect
         res.status(200).json({
             message: "Login successful",
-            user: result.user,               
-            permission_ids: result.permission_ids, 
-            permissions: result.permissions,
+            user: resultData.user,               
+            permission_ids: resultData.permission_ids, 
+            permissions: resultData.permissions,
             redirectUrl: '/dashboard'
         });
-        ws.connect(result.token)
-  .on('campaign.completed', (payload) => showToast(payload))
-  .on('campaign.progress',  (payload) => updateProgressBar(payload))
-  .on('system.alert',       (payload) => showAlert(payload));
     } catch (error) {
         res.status(401).json({ error: error.message });
     }

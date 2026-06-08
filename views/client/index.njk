@@ -22,9 +22,13 @@
                     <td>{{ client.name }}</td>
                     <td>
                         {% if client.status == 'pending' %}
-                            <span class="badge badge-warning">Pending Activation</span>
+                            <span class="badge badge-pending">
+                                Pending Activation
+                            </span>
                         {% else %}
-                            <span class="badge badge-success">Active</span>
+                            <span class="badge badge-active">
+                                Active
+                            </span>
                         {% endif %}
                     </td>
                     <td class="font-weight-bold text-primary">

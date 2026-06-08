@@ -14,7 +14,7 @@ clientController.renderIndex = async (req, res, next) => {
         res.render('client/index.njk', {
             title: 'Client Management',
             alias: 'clients',
-            clients: clients,
+            clients: clients.data,
             user: req.user
         });
     } catch (error) {
