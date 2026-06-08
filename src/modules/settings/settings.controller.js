@@ -3,20 +3,21 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 
 const settingsController = {};
 
+// --- VIEWS ---
+
 settingsController.renderSettingsPage = async (req, res, next) => {
     try {
-        // BFF Pattern: Fetch multiple resources concurrently to keep page load fast
-        const [senderIds, devSettings] = await Promise.all([
-            getSenderIds(req),
-            getDeveloperSettings(req.token)
+        // Fetch sender IDs and dev settings concurrently
+        const [senderIdsResponse, apiKeysResponse] = await Promise.all([
+            goEngineWrapper.getSenderIds(req).catch(() => ({ data: [] })), // Graceful fallback
+            goEngineWrapper.getAPIKeys(req).catch(() => ({ data: {} }))
         ]);
 
         res.render('configuration/index.njk', {
             title: 'Account Settings',
             alias: 'settings',
-            senderIds: senderIds,
-            devSettings: devSettings,
-            // Pass user info stored from the auth token
+            senderIds: senderIdsResponse.data,
+            apiKeys: apiKeysResponse.data,
             user: req.user 
         });
     } catch (error) {
@@ -24,7 +25,8 @@ settingsController.renderSettingsPage = async (req, res, next) => {
     }
 };
 
-// API Endpoint to request a new Sender ID
+// --- SENDER ID API ACTIONS ---
+
 settingsController.requestSenderId = async (req, res, next) => {
     try {
         const { senderId, justification } = req.body;
@@ -33,10 +35,68 @@ settingsController.requestSenderId = async (req, res, next) => {
             return res.status(400).json({ error: 'Sender ID must be between 1 and 11 characters.' });
         }
 
-        // Relay the request to the Go Engine
-        // await goEngineWrapper.requestNewSenderId(req.token, { senderId, justification });
+        const result = await goEngineWrapper.createSenderId({ name: senderId, justification }, req);
+        res.status(201).json({ success: true, message: 'Sender ID requested successfully. Pending approval.', data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-        res.status(201).json({ success: true, message: 'Sender ID requested successfully. Pending approval.' });
+settingsController.deleteSenderId = async (req, res, next) => {
+    try {
+        await goEngineWrapper.deleteSenderId(req.params.id, req);
+        res.status(200).json({ success: true, message: 'Sender ID deleted successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// --- TEMPLATE API ACTIONS ---
+
+settingsController.createTemplate = async (req, res, next) => {
+    try {
+        const result = await goEngineWrapper.createTemplate(req.body, req);
+        res.status(201).json({ success: true, message: 'Template created successfully.', data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+settingsController.updateTemplate = async (req, res, next) => {
+    try {
+        const result = await goEngineWrapper.updateTemplate(req.params.id, req.body, req);
+        res.status(200).json({ success: true, message: 'Template updated successfully.', data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+settingsController.deleteTemplate = async (req, res, next) => {
+    try {
+        await goEngineWrapper.deleteTemplate(req.params.id, req);
+        res.status(200).json({ success: true, message: 'Template deleted successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// --- ADMIN APPROVAL ACTIONS ---
+
+settingsController.adminApproveSenderId = async (req, res, next) => {
+    try {
+        const { status, reason } = req.body; // e.g., 'approved' or 'rejected'
+        const result = await goEngineWrapper.approveSenderId(req.params.id, { status, reason }, req);
+        res.status(200).json({ success: true, message: `Sender ID ${status}.`, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+settingsController.adminApproveTemplate = async (req, res, next) => {
+    try {
+        const { status, reason } = req.body; 
+        const result = await goEngineWrapper.approveTemplate(req.params.id, { status, reason }, req);
+        res.status(200).json({ success: true, message: `Template ${status}.`, data: result.data });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -301,15 +301,15 @@ const getUsers = async (req, clientId = null) => {
     }
 };
 
-const getDeveloperSettings = async (req) => {
+const getAPIKeys = async (req) => {
     try {
         const response = await clients.identity.get(
-            '/api/v1/settings/developer',
+            '/api/v1/api-keys/',
             withContext(req, { Authorization: `Bearer ${req.token}` }),
         );
         return response.data;
     } catch (error) {
-        handleEngineError(error, 'getDeveloperSettings');
+        handleEngineError(error, 'getAPIKeys');
     }
 };
 
@@ -452,33 +452,7 @@ const startBulkCampaign = async (payload, req) => {
     }
 };
 
-const getSenderIds = async (req) => {
-    try {
-        const response = await clients.sms.get(
-            '/api/v1/settings/sender-ids',
-            withContext(req, { Authorization: `Bearer ${req.token}` }),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'getSenderIds');
-    }
-};
 
-const getTemplates = async (req) => {
-    try {
-        const token = getJWT(req);
-        if (!token) throw new Error('Missing JWT token on request context');
-
-        const response = await clients.sms.get(
-            '/api/v1/settings/templates',
-            withContext(req, { Authorization: `Bearer ${token}` })
-        );
-        
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'getTemplates');
-    }
-};
 
 const startCampaign = async (payload, req) => {
     try {
@@ -610,6 +584,123 @@ const deleteContact = async (phoneId, req) => {
     } catch (error) { handleEngineError(error, 'deleteContact'); }
 };
 
+// --- SENDER IDS ---
+const getSenderIds = async (req, clientId = null) => {
+    try {
+        const token = getJWT(req);
+        const url = clientId ? `/api/v1/settings/sender-ids?client_id=${clientId}` : '/api/v1/settings/sender-ids';
+        const response = await clients.sms.get(
+            url,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'getSenderIds'); }
+};
+
+const createSenderId = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.post(
+            '/api/v1/settings/sender-ids',
+            payload,
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'createSenderId'); }
+};
+
+const deleteSenderId = async (id, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.delete(
+            `/api/v1/settings/sender-ids/${id}`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteSenderId'); }
+};
+
+const approveSenderId = async (id, payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.put(
+            `/api/v1/admin/sender-ids/${id}/approve`,
+            payload, // e.g., { status: 'approved' } or { status: 'rejected', reason: '...' }
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'approveSenderId'); }
+};
+
+
+// --- TEMPLATES ---
+
+const getTemplates = async (req, clientId = null) => {
+    try {
+        const token = getJWT(req);
+        const url = clientId ? `/api/v1/settings/templates?client_id=${clientId}` : '/api/v1/settings/templates';
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.sms.get(
+            url,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'getTemplates');
+    }
+};
+
+const createTemplate = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.post(
+            '/api/v1/settings/templates',
+            payload,
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'createTemplate'); }
+};
+
+const updateTemplate = async (id, payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.put(
+            `/api/v1/settings/templates/${id}`,
+            payload,
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateTemplate'); }
+};
+
+const deleteTemplate = async (id, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.delete(
+            `/api/v1/settings/templates/${id}`,
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deleteTemplate'); }
+};
+
+const approveTemplate = async (id, payload, req) => {
+    try {
+        const token = getJWT(req);
+        const response = await clients.sms.put(
+            `/api/v1/admin/templates/${id}/approve`,
+            payload,
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'approveTemplate'); }
+};
+
+
+
 // ============================================================================
 // Notification Stubs
 // ============================================================================
@@ -637,7 +728,7 @@ module.exports = {
     getRoles, createRole, deleteRole,
     getRolePermissions, assignRolePermissions,
     listAvailablePermissions, 
-    getDeveloperSettings,
+    getAPIKeys,
 
     // wallet
     getClientBalance,
@@ -647,8 +738,8 @@ module.exports = {
     // SMS / Campaigns
     getDashboardStats,
     getRecentCampaigns, startBulkCampaign, startCampaign, launchCampaign,
-    getSenderIds,
-    getTemplates,
+    getSenderIds,createSenderId,deleteSenderId,approveSenderId,
+    getTemplates,createTemplate,updateTemplate,deleteTemplate,approveTemplate,
     getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,
     getContactsByGroup,listContacts,addContacts,updateContact,deleteContact,
     
