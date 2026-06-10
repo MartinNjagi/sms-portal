@@ -57,9 +57,6 @@ const clients = {
 // 3. SECURITY HELPERS
 // =============================================================================
 
-let lastGeneratedUnix = 0;
-let microOffset = 0;
-
 /**
  * Extracts the real client IP from an Express request.
  * Relies on nginx setting X-Real-IP before the request reaches Node.
@@ -92,6 +89,11 @@ const signPayload = (body = '', timestamp) => {
     .digest('hex');
 };
 
+// --- ANTI-REPLAY VARIABLES ---
+// Must be declared OUTSIDE the function so they persist across calls
+let lastGeneratedUnix = 0;
+let microOffset = 0;
+
 /**
  * Builds the header block for every internal service call.
  */
@@ -103,7 +105,21 @@ const withContext = (req, extraHeaders = {}, payload = null) => {
     throw new Error(`Failed to serialize request payload for HMAC signing: ${err.message}`);
   }
 
-  const timestamp = Math.floor(Date.now() / 1000).toString();
+  // --- ANTI-REPLAY FIX ---
+  // Ensure every single request gets a unique timestamp to prevent identical 
+  // signatures on parallel GET requests within the same second.
+  let currentUnix = Math.floor(Date.now() / 1000);
+  
+  if (currentUnix === lastGeneratedUnix) {
+      microOffset += 3; 
+  } else {
+      lastGeneratedUnix = currentUnix;
+      microOffset = 0;
+  }
+  
+  const timestamp = (currentUnix + microOffset).toString();
+  // -----------------------
+
   const signature = signPayload(body, timestamp);
 
   if (!signature) {
@@ -304,10 +320,11 @@ const getUsers = async (req, clientId = null) => {
     }
 };
 
-const getAPIKeys = async (req) => {
+const getAPIKeys = async (req, clientId = null) => {
     try {
+        const url = clientId ? `/api/v1/api-keys?client_id=${clientId}` : '/api/v1/api-keys';
         const response = await clients.identity.get(
-            '/api/v1/api-keys/',
+            url,
             withContext(req, { Authorization: `Bearer ${req.token}` }),
         );
         return response.data;
@@ -355,12 +372,19 @@ const deleteRole = async (req, roleId) => {
 // WALLET SERVICE
 // ----------------------------------------------------------------------------
 
-const getClientBalance = async (req) => {
-    const clientId = req.user.id;
+// --- WALLET / BILLING SERVICE ---
+
+const getClientBalance = async (req, targetClientId = null) => {
     try {
+        const token = getJWT(req);
+        let url = '/api/v1/wallet/balance';
+        
+        // Append query param if performing an Admin lookup
+        if (targetClientId) url += `?client_id=${targetClientId}`;
+
         const response = await clients.wallet.get(
-            `/api/v1/wallet/balance/${clientId}`,
-            withContext(req),
+            url,
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
         return response.data;
     } catch (error) {
@@ -368,12 +392,19 @@ const getClientBalance = async (req) => {
     }
 };
 
-const getWalletHistory = async (req) => {
-    const targetId = req.params.clientId;
+const getWalletHistory = async (req, targetClientId = null, page = 1, pageSize = 10) => {
     try {
+        const token = getJWT(req);
+        
+        // Use the proper Go route and support pagination
+        let url = `/api/v1/wallet/ledger?page=${page}&pageSize=${pageSize}`;
+        
+        // Append query param if performing an Admin lookup
+        if (targetClientId) url += `&client_id=${targetClientId}`;
+
         const response = await clients.wallet.get(
-            `/api/v1/wallet/history/${targetId}`,
-            withContext(req, { Authorization: `Bearer ${req.token}` }),
+            url,
+            withContext(req, { Authorization: `Bearer ${token}` }),
         );
         return response.data;
     } catch (error) {
@@ -381,26 +412,34 @@ const getWalletHistory = async (req) => {
     }
 };
 
-const getWalletData = async (req) => {
+const getWalletData = async (req, targetClientId = null) => {
     try {
         const token = getJWT(req);
         if (!token) throw new Error('Missing JWT token on request context');
 
-        // Fetch balance and ledger history concurrently from Go
+        let balanceUrl = '/api/v1/wallet/balance';
+        let ledgerUrl = '/api/v1/wallet/ledger';
+
+        if (targetClientId) {
+            balanceUrl += `?client_id=${targetClientId}`;
+            ledgerUrl += `?client_id=${targetClientId}`;
+        }
+
+        // Fetch balance and ledger history concurrently
         const [balanceRes, ledgerRes] = await Promise.all([
-            clients.wallet.get('/api/v1/wallet/balance', withContext(req, { Authorization: `Bearer ${token}` })),
-            clients.wallet.get('/api/v1/wallet/ledger', withContext(req, { Authorization: `Bearer ${token}` }))
+            clients.wallet.get(balanceUrl, withContext(req, { Authorization: `Bearer ${token}` })),
+            clients.wallet.get(ledgerUrl, withContext(req, { Authorization: `Bearer ${token}` }))
         ]);
 
-        // Reconstruct the payload to match the shape the frontend is expecting
         return {
             status: 200,
             message: "Wallet data retrieved successfully",
             data: {
-                // Adjust these paths based on your Go struct's exact JSON shape
-                balance: balanceRes.data?.data?.balance || 0,
-                currency: balanceRes.data?.data?.currency || 'KES',
-                transactions: ledgerRes.data?.data || [] 
+                // Handle Go's JSON shape (GetBalance doesn't wrap in "data", ListLedger does)
+                balance: balanceRes.data?.balance ?? 0, 
+                currency: balanceRes.data?.currency ?? 'KES',
+                transactions: ledgerRes.data?.data || [],
+                pagination: ledgerRes.data?.pagination || null
             }
         };
     } catch (error) {
@@ -487,6 +526,18 @@ const getCampaignStats = async (id, req) => {
         );
         return response.data;
     } catch (error) { handleEngineError(error, 'getCampaignStats'); }
+};
+
+// Single SMS sending
+const sendSingleSMS = async (payload, req) => {
+    try {
+        const response = await clients.sms.post(
+            '/api/v1/campaigns/single',
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'sendSingleSMS'); }
 };
 
 // --- CONTACTS & ADDRESS BOOK ---
@@ -727,15 +778,40 @@ const approveTemplate = async (id, payload, req) => {
 // ============================================================================
 
 // Notifications — Go side handles admin vs client differentiation
-const getNotifications = (req, params = {}) =>
-    goGet(req.token, '/notifications', { params });
+// Find this inside src/services/goEngineWrapper.js
+const getNotifications = async (req) => {
+    try {
+        const token = getJWT(req);
+        // Replace the old goGet() call with the proper Axios client.
+        // (Assuming notifications are handled by the identity or sms service)
+        const response = await clients.websocket.get(
+            '/notifications', 
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { 
+        handleEngineError(error, 'getNotifications'); 
+    }
+};
 
-const markNotificationRead = (req, id) =>
-    goPatch(req.token, `/notifications/${id}/read`);
-
-const markAllNotificationsRead = (req) =>
-    goPatch(req.token, '/notifications/read-all');
-
+const markNotificationRead = async (id, req) => {
+    try {
+        const response = await clients.websocket.patch(
+            `/notifications/${id}/read`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'markNotificationRead'); }
+};
+const markAllNotificationsRead = async (req) => {
+    try {
+        const response = await clients.websocket.patch(
+            `/notifications/read-all`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'markAllNotificationsRead'); }
+};
 
 
 // =============================================================================
@@ -760,6 +836,7 @@ module.exports = {
     
     listCampaigns, getCampaignStats, launchBulkCampaign,deleteCampaign,
     scheduleCampaign,triggerScheduledCampaign,editCampaign,
+    sendSingleSMS,
     getSenderIds,createSenderId,deleteSenderId,approveSenderId,
     getTemplates,createTemplate,updateTemplate,deleteTemplate,approveTemplate,
     getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,

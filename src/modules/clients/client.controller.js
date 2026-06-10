@@ -26,7 +26,7 @@ clientController.renderIndex = async (req, res, next) => {
 clientController.renderWalletReport = async (req, res, next) => {
     try {
         const { clientId } = req.params;
-        const transactions = await goEngineWrapper.getClientWalletHistory(req.token, clientId);
+        const transactions = await goEngineWrapper.getWalletHistory(req, clientId);
 
         res.render('client/wallet-report.njk', {
             title: 'Wallet History',
@@ -55,7 +55,7 @@ clientController.renderAdminWalletReport = async (req, res, next) => {
         // Admin is looking at a specific sub-client's ID from the URL
         const targetId = req.params.clientId; 
         
-        const transactions = await goEngineWrapper.getWalletHistory(req.token, targetId);
+        const transactions = await goEngineWrapper.getWalletHistory(req, targetId);
 
         res.render('client/wallet-report.njk', {
             title: `Ledger for Client ${targetId}`,
@@ -78,7 +78,7 @@ clientController.viewMyTeam = async (req, res, next) => {
         // }
 
         // Fetch users using the securely extracted ID
-        const users = await goEngineWrapper.getUsersByClient(req.token, clientId);
+        const users = await goEngineWrapper.getUsers(req);
         
         // Reuse the exact same Nunjucks template! 
         res.render('clients/users.njk', { 

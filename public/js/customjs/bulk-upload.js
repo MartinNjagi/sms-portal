@@ -28,10 +28,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Fetch Dashboard Data (Balance, Outbox, Setup dropdowns)
     try {
-        const res = await fetch('/messages/api/dashboard-data'); // Adjust to your actual BFF route for getMessageDashboardData
+        const res = await fetch('/messages/api/dashboard-data'); 
         const { data } = await res.json();
         
         document.getElementById('stat-balance').innerText = data.balance.toFixed(2);
+        
+        // 👉 ADD THIS: Populate Sender IDs Dropdown
+        const senderSelect = document.getElementById('campSenderId');
+        senderSelect.innerHTML = '<option value="" disabled selected>Select Sender ID</option>';
+        data.senderIds.forEach(sender => {
+            // Only allow them to select approved IDs
+            if (sender.status === 'APPROVED') {
+                senderSelect.innerHTML += `<option value="${sender.id}">${sender.sender_id}</option>`;
+            }
+        });
+
+        // Populate Groups Dropdown
+        const groupSelect = document.getElementById('campGroupId');
+        groupSelect.innerHTML = '<option value="" disabled selected>Select Group</option>';
+        data.groups.forEach(group => {
+            groupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
+        });
         
         // Populate Outbox Table
         const tbody = document.getElementById('outboxTableBody');
@@ -40,14 +57,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             tbody.innerHTML += `
                 <tr>
                     <td><strong>${c.name}</strong></td>
-                    <td><span class="badge badge-${c.status === 'Completed' ? 'success' : 'warning'}">${c.status}</span></td>
+                    <td><span class="badge badge-${c.status === 'COMPLETED' ? 'success' : 'warning'}">${c.status}</span></td>
                     <td>${c.sent || 0}</td>
                     <td>${c.failed || 0}</td>
-                    <td>${new Date().toLocaleDateString()}</td> <td><button class="btn btn-sm btn-outline-info">View</button></td>
+                    <td>${new Date(c.date).toLocaleDateString()}</td> 
+                    <td>
+                        <button class="btn btn-sm btn-outline-info view-campaign-btn" 
+                                data-id="${c.id}" 
+                                data-name="${c.name}">
+                            View Stats
+                        </button>
+                    </td>
                 </tr>
             `;
         });
         if(data.recentCampaigns.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No recent campaigns.</td></tr>';
+        
+        document.querySelectorAll('.view-campaign-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const campaignId = e.target.getAttribute('data-id');
+                const campaignName = e.target.getAttribute('data-name');
+                
+                openStatsModal(campaignId, campaignName);
+            });
+        });
 
     } catch (error) {
         console.error("Failed to load dashboard data", error);
@@ -65,8 +98,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progress = document.getElementById('uploadProgress');
         
         const payload = {
-            campaignName: document.getElementById('campName').value,
-            senderId: document.getElementById('campSenderId').value,
+            name: document.getElementById('campName').value,
+            sender_id: document.getElementById('campSenderId').value,
             messageContent: document.getElementById('campMessage').value,
             targetType: campTargetType.value
         };
@@ -145,6 +178,66 @@ document.addEventListener('DOMContentLoaded', async () => {
             progress.classList.add('d-none');
         }
     });
+
+
+    // ==========================================
+    // STATS MODAL LOGIC
+    // ==========================================
+    let currentPollingInterval = null;
+
+    async function openStatsModal(id, name) {
+        // 1. Reset UI
+        document.getElementById('modalCampName').innerText = name;
+        document.getElementById('modalStatTotal').innerText = '...';
+        document.getElementById('modalStatPending').innerText = '...';
+        document.getElementById('modalStatSent').innerText = '...';
+        document.getElementById('modalStatFailed').innerText = '...';
+
+        // 2. Open Modal (Assuming jQuery/Bootstrap 4)
+        $('#campaignStatsModal').modal('show');
+
+        // 3. Fetch Data immediately
+        await fetchAndPopulateStats(id);
+
+        // 4. Attach manual refresh button logic
+        const refreshBtn = document.getElementById('btn-refresh-stats');
+        // Remove old listeners to prevent duplicates if they click multiple campaigns
+        const newRefreshBtn = refreshBtn.cloneNode(true); 
+        refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
+        
+        newRefreshBtn.addEventListener('click', async () => {
+            newRefreshBtn.innerText = 'Refreshing...';
+            newRefreshBtn.disabled = true;
+            await fetchAndPopulateStats(id);
+            newRefreshBtn.innerText = 'Refresh Live Stats';
+            newRefreshBtn.disabled = false;
+        });
+    }
+
+    async function fetchAndPopulateStats(id) {
+        try {
+            // Hit your Node BFF which proxies to Go's blazing fast COUNT() query
+            const res = await fetch(`/messages/api/campaigns/${id}/stats`);
+            const result = await res.json();
+            
+            if (res.ok && result.data) {
+                const stats = result.data;
+                
+                // Animate values for a nice touch
+                document.getElementById('modalStatTotal').innerText = (stats.TOTAL || 0).toLocaleString();
+                
+                // Combine PENDING and PROCESSING for a simpler UI view
+                const pendingCount = (stats.PENDING || 0) + (stats.PROCESSING || 0);
+                document.getElementById('modalStatPending').innerText = pendingCount.toLocaleString();
+                
+                document.getElementById('modalStatSent').innerText = (stats.SENT || stats.DELIVERED || 0).toLocaleString();
+                document.getElementById('modalStatFailed').innerText = (stats.FAILED || 0).toLocaleString();
+            }
+        } catch (err) {
+            console.error("Failed to fetch campaign stats", err);
+        }
+    }
+
 
     // Basic Tab Logic (Vanilla JS fallback)
     document.querySelectorAll('#campaignTabs .nav-link').forEach(link => {

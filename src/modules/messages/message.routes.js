@@ -4,35 +4,22 @@ const router = express.Router();
 const messageController = require('./message.controller');
 const { requireAuth } = require('../../middlewares/requireAuth');
 
-// Enforce authentication on all messaging routes
 router.use(requireAuth);
 
-// ==========================================
-// 1. PAGE VIEWS (HTML)
-// ==========================================
-
-// Main Messaging Dashboard (Launch Campaign & Outbox)
+// --- VIEWS ---
 router.get('/', messageController.renderBulkDashboard);
-
-// Message Templates Management View
+router.get('/single', messageController.renderSingleDashboard);
 router.get('/templates', messageController.renderTemplates);
+router.post('/templates', messageController.createTemplateSync); // Handle Modal Form POST
 
-
-// ==========================================
-// 2. BFF API ENDPOINTS (JSON)
-// ==========================================
-
-// Dashboard initialization data (Fetches balance and recent campaigns)
+// --- BFF API (Called by bulk-upload.js) ---
 router.get('/api/dashboard-data', messageController.getMessageDashboardData);
-
-// Generates Pre-signed GET/PUT URLs for Cloud Storage (bypasses server memory)
 router.get('/api/upload-url', messageController.getUploadUrl);
+router.post('/api/trigger', messageController.triggerCampaign);       // Group Flow
+router.post('/api/trigger-bulk', messageController.triggerBulkCampaign); // CSV Flow
+router.post('/api/single', messageController.sendSingle);
+router.post('/api/campaigns/:id/stats', messageController.getCampaignStats);
 
-// Unified Campaign Trigger (Handles Instant, Scheduled, Group, and CSV payloads)
-router.post('/api/process-campaign', messageController.processCampaign);
-
-// Live Stats for Outbox polling (Fetches PENDING, DELIVERED, FAILED counts)
-router.get('/api/campaigns/:id/stats', messageController.getCampaignStats);
 
 
 module.exports = router;

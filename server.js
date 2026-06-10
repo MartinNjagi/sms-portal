@@ -51,7 +51,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:"],
             mediaSrc: ["'self'", "data:"], 
-            connectSrc: ["'self'", "ws:", "wss:"] 
+            connectSrc: ["'self'", "ws:", "wss:",process.env.S3_ENDPOINT] 
         }
     }
 }));

@@ -7,10 +7,16 @@ const settingsController = {};
 
 settingsController.renderSettingsPage = async (req, res, next) => {
     try {
+
+        const targetClientId = (req.user.role === 'ADMIN' && req.query.client_id) 
+        ? req.query.client_id 
+        : null; // Or undefined, depending on your wrapper signature
+
         // Fetch sender IDs and dev settings concurrently
-        const [senderIdsResponse, apiKeysResponse] = await Promise.all([
-            goEngineWrapper.getSenderIds(req).catch(() => ({ data: [] })), // Graceful fallback
-            goEngineWrapper.getAPIKeys(req).catch(() => ({ data: {} }))
+        const [senderIdsResponse, apiKeysResponse,templatesResponse] = await Promise.all([
+            goEngineWrapper.getSenderIds(req,targetClientId).catch(() => ({ data: [] })), // Graceful fallback
+            goEngineWrapper.getAPIKeys(req).catch(() => ({ data: {} })),
+            goEngineWrapper.getTemplates(req,targetClientId).catch(() => ({ data: {} }))
         ]);
 
         res.render('configuration/index.njk', {
@@ -18,6 +24,7 @@ settingsController.renderSettingsPage = async (req, res, next) => {
             alias: 'settings',
             senderIds: senderIdsResponse.data,
             apiKeys: apiKeysResponse.data,
+            templates:templatesResponse.data,
             user: req.user 
         });
     } catch (error) {
@@ -35,8 +42,12 @@ settingsController.requestSenderId = async (req, res, next) => {
             return res.status(400).json({ error: 'Sender ID must be between 1 and 11 characters.' });
         }
 
-        const result = await goEngineWrapper.createSenderId({ name: senderId, justification }, req);
-        res.status(201).json({ success: true, message: 'Sender ID requested successfully. Pending approval.', data: result.data });
+        const goPayload = {
+            sender_id: senderId,        // Change this if your Go struct expects "SenderID"
+            justification: justification // Change this if your Go struct expects "Justification"
+        };
+
+        const result = await goEngineWrapper.createSenderId(goPayload, req);        res.status(201).json({ success: true, message: 'Sender ID requested successfully. Pending approval.', data: result.data });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

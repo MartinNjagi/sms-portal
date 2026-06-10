@@ -1,4 +1,5 @@
 const { on, off } = require('../../services/webSocketService');
+
 // ==========================================
 // 1. SSE Controller
 // ==========================================
@@ -20,13 +21,14 @@ const handleSSE = (req, res) => {
 
     events.forEach(event => {
         handlers[event] = forward(event);
-        // ✅ 'on' now references the destructured function
+        // Bind the event listener
         on(event, handlers[event]); 
     });
 
     // Clean up when browser closes the tab/logs out
     req.on('close', () => {
-        events.forEach(event => WSE.off(event, handlers[event]));
+        // ✅ Changed WSE.off to just off() since it was destructured at the top
+        events.forEach(event => off(event, handlers[event]));
         console.log('SSE client disconnected');
     });
 };

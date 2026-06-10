@@ -1,140 +1,17 @@
-// src/modules/messages/message.controller.js
-
-// Mocking dependencies that you will create in your /src/services folder
-const s3Service = require('../../services/cloudStorage'); 
 const goEngineWrapper = require('../../services/goEngineWrapper');
+const s3Service = require('../../services/cloudStorage');
 
 const messageController = {};
 
-/**
- * 1. The BFF View Aggregator
- * Gathers everything the frontend needs to render the bulk SMS page.
- */
-messageController.getMessageDashboardData = async (req, res, next) => {
-    try {
-        // In a BFF, we aggregate data from multiple services for the initial load
-        const [accountStatus, recentCampaigns] = await Promise.all([
-            goEngineWrapper.getClientBalance(req),
-            goEngineWrapper.getRecentCampaigns(req, { limit: 5 })
-        ]);
+// ==========================================
+// 1. HTML VIEW RENDERERS
+// ==========================================
 
-        res.status(200).json({
-            success: true,
-            data: {
-                balance: accountStatus.balance,
-                recentCampaigns,
-                uploadRequirements: {
-                    maxSizeMb: 100, // Enforced on frontend
-                    allowedTypes: ['text/csv', 'application/vnd.ms-excel']
-                }
-            }
-        });
-    } catch (error) {
-        next(error); // Passes to global error handler
-    }
-};
-
-/**
- * 2. Validation & Signing (Pre-signed URL)
- * Called BY the frontend AFTER it does fast client-side CSV parsing (checking for headers).
- */
-messageController.getUploadUrl = async (req, res, next) => {
-    try {
-        const { fileName, fileType, estimatedRows } = req.query;
-
-        // --- VALIDATION ---
-        if (!fileName || !fileType) {
-            return res.status(400).json({ error: 'Missing file details.' });
-        }
-
-        // Example: Block if user doesn't have enough balance for estimated rows
-        const account = await goEngineWrapper.getClientBalance(req);
-        if (account.balance < estimatedRows) {
-             return res.status(402).json({ error: 'Insufficient balance for this campaign size.' });
-        }
-
-        // --- SIGNING ---
-        // Generate a unique key for storage to prevent overwrites
-        const uniqueFileKey = `campaigns/${req.user.clientId}/${Date.now()}_${fileName}`;
-        
-        // Ask AWS/MinIO for a temporary URL where the frontend can safely PUT the file
-        const signedUrl = await s3Service.generatePresignedPutUrl(uniqueFileKey, fileType);
-
-        res.status(200).json({
-            success: true,
-            data: {
-                uploadUrl: signedUrl,
-                fileKey: uniqueFileKey // The frontend will pass this back to us in step 3
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * 3. The Trigger
- * Called by the frontend AFTER it successfully uploads the CSV to Cloud Storage.
- */
-messageController.triggerGoEngine = async (req, res, next) => {
-    try {
-        const { fileKey, campaignName, senderId } = req.body;
-
-        // --- FINAL VALIDATION ---
-        if (!fileKey || !senderId) {
-            return res.status(400).json({ error: 'Missing required campaign parameters.' });
-        }
-
-        // --- TRIGGER GO ENGINE ---
-        // We pass the location of the file, NOT the file itself. 
-        // The Go engine will download it directly from S3/MinIO and start queuing.
-        const goResponse = await goEngineWrapper.startBulkCampaign({
-            clientId: req.user.clientId,
-            campaignName,
-            senderId,
-            s3FileKey: fileKey,
-            callbackRoom: `campaign_${req.user.clientId}` // Tells Go where to send WebSockets
-        }, req);
-
-        // --- RESPOND TO FRONTEND ---
-        // We reply immediately. The frontend will now listen on WebSockets for DLRs and progress.
-        res.status(202).json({
-            success: true,
-            message: 'Campaign accepted and processing started.',
-            data: {
-                campaignId: goResponse.campaignId,
-                status: 'pending'
-            }
-        });
-
-    } catch (error) {
-        // If Go engine is down, we catch it here and inform the user cleanly
-        next(error);
-    }
-};
-
-messageController.renderTemplates = async (req, res, next) => {
-    try {
-        const clientId = req.user.clientId;
-        const templates = await goEngineWrapper.getTemplates(req);
-        
-        res.render('messages/templates.njk', { 
-            title: 'Message Templates',
-            alias: 'templates', // Will use this to highlight a new sidebar link
-            user: req.user,
-            templates
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// Serves the HTML view for the unified campaign dashboard
 messageController.renderBulkDashboard = async (req, res, next) => {
     try {
         res.render('message/bulk.njk', {
             title: 'Messaging Dashboard',
-            alias: 'messages', // Highlights the sidebar tab
+            alias: 'messages', 
             user: req.user
         });
     } catch (error) {
@@ -142,68 +19,177 @@ messageController.renderBulkDashboard = async (req, res, next) => {
     }
 };
 
-messageController.processCampaign = async (req, res, next) => {
+messageController.renderSingleDashboard = async (req, res, next) => {
     try {
-        const { 
-            campaignName, 
-            senderId, 
-            messageContent, 
-            fileKey, 
-            groupId, 
-            scheduledFor // Frontend can optionally pass an ISO date string
-        } = req.body;
+        res.render('message/index.njk', {
+            title: 'Messaging Dashboard',
+            alias: 'messages', 
+            user: req.user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
-        // 1. Convert S3 Key to a fully resolvable URL for Go's http.Get()
-        let fileUrl = null;
-        if (fileKey) {
-            fileUrl = await s3Service.generatePresignedGetUrl(fileKey);
-        }
+messageController.renderTemplates = async (req, res, next) => {
+    try {
+        // Fetch existing templates for the view
+        const templatesRes = await goEngineWrapper.getTemplates(req).catch(() => ({ data: [] }));
+        
+        res.render('message/templates.njk', {
+            title: 'Message Templates',
+            alias: 'templates',
+            user: req.user,
+            templates: templatesRes.data
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
-        // 2. Prepare the Go struct payload
-        // Maps directly to data.BulkCampaignRequest / data.ScheduleCampaignRequest
+// Handle traditional form POST from the Template Modal
+messageController.createTemplateSync = async (req, res, next) => {
+    try {
+        // The modal form sends 'Template Name' and 'Message Content'
+        // Adjust these keys based on your actual form input 'name' attributes
+        const { templateName, templateContent } = req.body; 
+        
+        await goEngineWrapper.createTemplate({ 
+            name: templateName, 
+            content: templateContent 
+        }, req);
+        
+        // Redirect back to templates page after creation
+        res.redirect('/messages/templates');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==========================================
+// 2. JSON API ENDPOINTS (For AJAX/Fetch)
+// ==========================================
+
+messageController.getMessageDashboardData = async (req, res, next) => {
+    try {
+        // Concurrently fetch all data needed to render the Dashboard and fill the dropdowns!
+        const [walletRes, campaignsRes, sendersRes, groupsRes,templatesRes] = await Promise.all([
+            goEngineWrapper.getWalletData(req).catch(() => ({ data: { balance: 0 } })),
+            goEngineWrapper.listCampaigns(req, 1, 5).catch(() => ({ data: [] })),
+            goEngineWrapper.getSenderIds(req).catch(() => ({ data: [] })),
+            goEngineWrapper.getContactGroups(req).catch(() => ({ data: [] })),
+            goEngineWrapper.getTemplates(req).catch(() => ({ data: [] }))
+        ]);
+
+        const recentCampaigns = (campaignsRes.data || []).map(camp => ({
+            id: camp.ID,
+            name: camp.Name,
+            status: camp.Status,
+            sent: 0, // Update via outbox stats later if needed
+            failed: 0,
+            date: camp.CreatedAt
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                balance: walletRes.data?.balance || 0,
+                recentCampaigns,
+                senderIds: sendersRes.data || [],
+                groups: groupsRes.data || [],
+                templates: templatesRes.data || []
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load dashboard data' });
+    }
+};
+
+messageController.getUploadUrl = async (req, res, next) => {
+    try {
+        const { fileName, fileType } = req.query;
+        if (!fileName || !fileType) return res.status(400).json({ error: 'Missing file details.' });
+
+        // Generate a unique S3 key
+        const uniqueFileKey = `campaigns/${req.user.client_id}/${Date.now()}_${fileName}`;
+        const uploadUrl = await s3Service.generatePresignedPutUrl(uniqueFileKey, fileType);
+
+        res.status(200).json({ success: true, data: { uploadUrl, fileKey: uniqueFileKey } });
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
+};
+
+// Handles Scenario A: Sending to a Saved Group
+messageController.triggerCampaign = async (req, res, next) => {
+    try {
+        const { campaignName, senderId, messageContent, groupId } = req.body;
+        
         const goPayload = {
             Name: campaignName,
             SenderID: senderId,
-            ContactGroup: groupId ? parseInt(groupId, 10) : null,
-            FileURL: fileUrl,
-            // Assuming Go accepts the raw message body under 'TemplateName' if no strict template is used
-            // If your Go engine has a separate 'Message' field, map it there instead.
-            TemplateName: messageContent 
+            TemplateName: messageContent,
+            ContactGroup: parseInt(groupId, 10)
         };
 
-        let result;
-
-        // 3. Route to the correct Go engine endpoint
-        if (scheduledFor) {
-            goPayload.ScheduledFor = scheduledFor;
-            result = await goEngineWrapper.scheduleCampaign(goPayload, req);
-        } else {
-            result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
-        }
-
-        // 4. Respond to the frontend
-        res.status(202).json({
-            success: true,
-            message: result.message || 'Campaign queued successfully',
-            data: {
-                clientId: req.user.clientId // Passed back so UI can join the right Socket room
-            }
-        });
-
+        const result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        res.status(202).json({ success: true, message: result.message });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Also expose an endpoint for the UI to poll the live stats
-messageController.getCampaignStats = async (req, res, next) => {
+// Handles Scenario B: Uploading a CSV
+messageController.triggerBulkCampaign = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        const stats = await goEngineWrapper.getCampaignStats(id, req);
-        res.status(200).json({ success: true, data: stats.data });
+        const { campaignName, senderId, messageContent, fileKey } = req.body;
+        
+        // Generate the accessible download URL for Go
+        const fileUrl = await s3Service.generatePresignedGetUrl(fileKey);
+
+        const goPayload = {
+            Name: campaignName,
+            SenderID: senderId,
+            TemplateName: messageContent,
+            FileURL: fileUrl
+        };
+
+        const result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        res.status(202).json({ success: true, message: result.message });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
+messageController.sendSingle = async (req, res, next) => {
+    try {
+        const { msisdn, senderId, templateName, message } = req.body;
+        
+        // Maps exactly to your Go SingleSMSRequest struct
+        const goPayload = {
+            msisdn: msisdn,
+            sender_id: senderId,
+            template_name: templateName || "",
+            message: message || ""
+        };
+
+        const result = await goEngineWrapper.sendSingleSMS(goPayload, req);
+        
+        res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+messageController.getCampaignStats = async (req, res, next) => {
+       try {
+           const { id } = req.params;
+           const result = await goEngineWrapper.getCampaignStats(id, req);
+           res.status(200).json({ success: true, data: result.data });
+       } catch (error) {
+           res.status(500).json({ error: error.message });
+       }
+};
+
 
 module.exports = messageController;
