@@ -1,0 +1,147 @@
+{% extends "../layout-v2.njk" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4">
+        <h2 class="h3 mb-2 mb-sm-0 text-gray-800">{{ title | default('Configuration & Settings') }}</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-3 col-md-4 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="list-group list-group-flush" id="settings-list-tab" role="tablist">
+                    <a class="list-group-item list-group-item-action active d-flex align-items-center" data-bs-toggle="list" href="#profile" role="tab">
+                        <span class="me-2">👤</span> Profile Info
+                    </a>
+                    <a class="list-group-item list-group-item-action d-flex align-items-center" data-bs-toggle="list" href="#api" role="tab">
+                        <span class="me-2">🔌</span> API & Webhooks
+                    </a>
+                    
+                    {% if user.role == 'ADMIN' %}
+                    <a class="list-group-item list-group-item-action d-flex align-items-center bg-dark text-white mt-3" data-bs-toggle="list" href="#adminBilling" role="tab" style="border-radius: 0 0 5px 5px;">
+                        <span class="me-2">🛡️</span> Admin Billing Controls
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9 col-md-8">
+            <div class="tab-content" id="nav-tabContent">
+                
+                <div class="tab-pane fade show active" id="profile" role="tabpanel">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-4">
+                            <h4 class="mb-3">Profile Information</h4>
+                            <p class="text-muted mb-4">Manage your account details, security preferences, and timezone.</p>
+                            </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="api" role="tabpanel">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body p-4">
+                            <h4 class="mb-4">Developer API & Webhooks</h4>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Live API Key</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-light" value="{{ devSettings.apiKey }}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button">Copy</button>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">DLR Webhook URL</label>
+                                <input type="url" class="form-control" value="{{ devSettings.webhookUrl }}" placeholder="https://your-domain.com/api/dlr">
+                                <div class="form-text">The Go Engine will POST Delivery Reports (DLRs) to this URL.</div>
+                            </div>
+                            <button class="btn btn-success px-4">Save Webhook Settings</button>
+                        </div>
+                    </div>
+                </div>
+
+                {% if user.role == 'ADMIN' %}
+                <div class="tab-pane fade" id="adminBilling" role="tabpanel">
+                    
+                    <div class="card shadow-sm border-0 border-left-primary mb-4">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="m-0 font-weight-bold text-dark">Manual Wallet Adjustment</h5>
+                            <p class="text-muted small m-0">Credit or debit a client's account directly.</p>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="form-manual-adjustment">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="fw-bold">Target Client</label>
+                                        <select id="adjClientId" class="form-control admin-client-dropdown" required>
+                                            <option value="" disabled selected>Loading clients...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="fw-bold">Action</label>
+                                        <select id="adjAction" class="form-control" required>
+                                            <option value="credit">Credit (Add Funds)</option>
+                                            <option value="debit">Debit (Deduct Funds)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="fw-bold">Amount (Credits/KES)</label>
+                                        <input type="number" id="adjCredits" class="form-control" min="1" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="fw-bold">Description / Reason</label>
+                                        <input type="text" id="adjDescription" class="form-control" placeholder="e.g., Promotional Bonus, SLA Refund" required>
+                                    </div>
+                                </div>
+                                <button type="submit" id="btn-submit-adj" class="btn btn-primary mt-2">Apply Adjustment</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border-0 border-left-warning">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="m-0 font-weight-bold text-dark">Update Client Billing Configuration</h5>
+                            <p class="text-muted small m-0">Override base rates or SLA refund settings for specific tenants.</p>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="form-billing-config">
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="fw-bold">Target Client</label>
+                                        <select id="cfgClientId" class="form-control admin-client-dropdown" required>
+                                            <option value="" disabled selected>Loading clients...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="fw-bold">Base SMS Rate (KES)</label>
+                                        <input type="number" id="cfgBaseRate" class="form-control" step="0.01" min="0" placeholder="e.g., 0.80">
+                                    </div>
+                                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="cfgRefund" value="true">
+                                            <label class="form-check-label fw-bold" for="cfgRefund">
+                                                Refund on Failed Delivery?
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" id="btn-submit-cfg" class="btn btn-warning text-dark mt-2">Update Configuration</button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/js/customjs/settings.js"></script>
+{% endblock %}

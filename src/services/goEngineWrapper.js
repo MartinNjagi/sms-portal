@@ -447,6 +447,29 @@ const getWalletData = async (req, targetClientId = null) => {
     }
 };
 
+const manualWalletAdjustment = async (payload, req) => {
+    try {
+        const response = await clients.wallet.post(
+            '/api/v1/wallet/manual-adjustment', // Check your Go router for the exact path!
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'manualWalletAdjustment'); }
+};
+
+const updateBillingConfig = async (targetClientId, payload, req) => {
+    try {
+        const response = await clients.wallet.put(
+            `/api/v1/wallet/config/${targetClientId}`, // Check your Go router for the exact path!
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateBillingConfig'); }
+};
+
+
 // ----------------------------------------------------------------------------
 // SMS / CAMPAIGN SERVICE
 // ----------------------------------------------------------------------------
@@ -831,6 +854,8 @@ module.exports = {
     getClientBalance,
     getWalletHistory,
     getWalletData,
+    manualWalletAdjustment,
+    updateBillingConfig,
 
     // SMS / Campaigns
     

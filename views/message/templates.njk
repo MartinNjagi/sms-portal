@@ -2,70 +2,189 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>{{ title }}</h2>
-        <button class="btn btn-primary px-4" data-bs-toggle="modal" data-bs-target="#newTemplateModal">
-            + Request New Template
-        </button>
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4">
+        <h2 class="h3 mb-2 mb-sm-0 text-gray-800">{{ title | default('Templates & Sender IDs') }}</h2>
+        <div>
+            <button class="btn btn-outline-primary px-3 me-2" data-bs-toggle="modal" data-bs-target="#requestSenderIdModal">
+                + Request Sender ID
+            </button>
+            <button class="btn btn-primary px-3" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+                + Create Template
+            </button>
+        </div>
     </div>
+
+    {% if user.role == 'ADMIN' %}
+    <div class="alert alert-dark d-flex flex-column flex-md-row justify-content-between align-items-md-center shadow-sm mb-4">
+        <div>
+            <strong>🛡️ Admin Override Mode</strong>
+            <p class="mb-0 small text-muted">You are currently reviewing approvals for:</p>
+        </div>
+        <div class="mt-2 mt-md-0 d-flex gap-2 align-items-center">
+            <select id="adminClientSwitcher" class="form-select form-select-sm w-auto">
+                <option value="">My Own Config (Admin)</option>
+                </select>
+            <button id="btn-load-client" class="btn btn-sm btn-dark">Load</button>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="row">
-        {% for tpl in templates %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm border-0">
-                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
-                    <h6 class="mb-0 fw-bold">{{ tpl.name }}</h6>
-                    {% if tpl.status == 'Approved' %}
-                        <span class="badge bg-success bg-opacity-10 text-success">Approved</span>
-                    {% elif tpl.status == 'Pending' %}
-                        <span class="badge bg-warning bg-opacity-10 text-warning">Pending Review</span>
-                    {% else %}
-                        <span class="badge bg-danger bg-opacity-10 text-danger">Rejected</span>
-                    {% endif %}
+        <div class="col-lg-5 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="m-0 font-weight-bold text-dark">My Sender IDs</h5>
+                    <p class="text-muted small m-0">Identities your messages are sent from.</p>
                 </div>
-                <div class="card-body bg-light rounded-bottom m-2 mt-0 p-3">
-                    <p class="font-monospace text-muted mb-0" style="font-size: 0.9em;">
-                        {{ tpl.content }}
-                    </p>
-                </div>
-                <div class="card-footer bg-white border-0 text-end">
-                    <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                    <button class="btn btn-sm btn-outline-danger">Delete</button>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Sender ID</th>
+                                    <th>Status</th>
+                                    <th class="text-end pe-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sender in senderIds %}
+                                <tr id="row-sender-{{ sender.id }}">
+                                    <td class="ps-3"><strong>{{ sender.sender_id or sender.id }}</strong></td>
+                                    <td>
+                                        {% if sender.status == 'APPROVED' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif sender.status == 'REJECTED' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        {% if user.role == 'ADMIN' and sender.status != 'APPROVED' %}
+                                            <button class="btn btn-sm btn-success approve-sender-btn mb-1" data-id="{{ sender.id }}">Approve</button>
+                                            <button class="btn btn-sm btn-warning reject-sender-btn mb-1" data-id="{{ sender.id }}">Reject</button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-danger delete-sender-btn" data-id="{{ sender.id }}">Delete</button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">No Sender IDs found. Request one to get started.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="col-12 text-center py-5 text-muted">
-            <span style="font-size: 3rem;">📝</span>
-            <h5 class="mt-3">No templates yet</h5>
-            <p>Create a template to speed up your bulk campaigns and ensure compliance.</p>
+
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="m-0 font-weight-bold text-dark">Message Templates</h5>
+                    <p class="text-muted small m-0">Pre-approved content for faster sending.</p>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Name</th>
+                                    <th>Content Preview</th>
+                                    <th>Status</th>
+                                    <th class="text-end pe-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tpl in templates %}
+                                <tr id="row-template-{{ tpl.id }}">
+                                    <td class="ps-3"><strong>{{ tpl.name }}</strong></td>
+                                    <td class="text-truncate" style="max-width: 200px;" title="{{ tpl.content }}">{{ tpl.content }}</td>
+                                    <td>
+                                        {% if tpl.status == 'APPROVED' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif tpl.status == 'REJECTED' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        {% if user.role == 'ADMIN' and tpl.status != 'APPROVED' %}
+                                            <button class="btn btn-sm btn-success approve-template-btn mb-1" data-id="{{ tpl.id }}">Approve</button>
+                                            <button class="btn btn-sm btn-warning reject-template-btn mb-1" data-id="{{ tpl.id }}">Reject</button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-danger delete-template-btn" data-id="{{ tpl.id }}">Delete</button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No Templates found. Create one to save time.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        {% endfor %}
     </div>
 </div>
 
-<div class="modal fade" id="newTemplateModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title">Request Template Approval</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="modal fade" id="requestSenderIdModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="form-request-sender-id" class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title">Request Sender ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form action="/messages/templates" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Template Name</label>
-                        <input type="text" class="form-control" placeholder="e.g., Order Confirmation" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Message Content</label>
-                        <textarea class="form-control font-monospace" rows="4" placeholder="Use [Variables] for dynamic data..." required></textarea>
-                        <small class="text-muted">Max 160 characters per SMS.</small>
-                    </div>
-                    <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Submit for Review (WIP)</button>
-                </form>
+                <div class="mb-3">
+                    <label class="form-label">Sender ID</label>
+                    <input type="text" id="senderIdInput" class="form-control" maxlength="11" placeholder="Max 11 Characters" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Justification / Use Case</label>
+                    <textarea id="senderIdJustification" class="form-control" rows="3" required placeholder="Explain what type of messages you will send to assist compliance approval..."></textarea>
+                </div>
             </div>
-        </div>
+            <div class="modal-footer border-top-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btn-submit-sender">Submit Request</button>
+            </div>
+        </form>
     </div>
 </div>
+
+<div class="modal fade" id="createTemplateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="form-create-template" class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title">Create Message Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Template Name</label>
+                    <input type="text" id="templateNameInput" class="form-control" required placeholder="e.g., OTP Verification">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Message Content</label>
+                    <textarea id="templateContentInput" class="form-control" rows="4" required placeholder="Your RahaPay code is [CODE]..."></textarea>
+                    <div class="form-text">Variables like [CODE] or [NAME] can be injected during sending.</div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btn-submit-template">Create Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/js/customjs/settings.js"></script>
 {% endblock %}

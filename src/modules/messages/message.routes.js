@@ -18,6 +18,7 @@ router.get('/api/upload-url', messageController.getUploadUrl);
 router.post('/api/trigger', messageController.triggerCampaign);       // Group Flow
 router.post('/api/trigger-bulk', messageController.triggerBulkCampaign); // CSV Flow
 router.post('/api/single', messageController.sendSingle);
+router.post('/api/campaigns/:id', messageController.editCampaign);
 router.post('/api/campaigns/:id/stats', messageController.getCampaignStats);
 
 

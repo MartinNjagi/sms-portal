@@ -1,30 +1,44 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
     // ==========================================
-    // 1. INITIALIZE FORM DATA
+    // 1. DOM ELEMENTS
+    // ==========================================
+    const senderSelect = document.getElementById('singleSenderId');
+    const templateSelect = document.getElementById('singleTemplate');
+    const manualGroup = document.getElementById('manualMessageGroup');
+    const manualMessage = document.getElementById('singleMessage');
+    const dynamicContainer = document.getElementById('dynamicInputsContainer');
+    const dynamicInputsList = document.getElementById('dynamicInputsList');
+    const livePreviewText = document.getElementById('livePreviewText');
+    const charCount = document.getElementById('previewCharCount');
+    const smsCount = document.getElementById('previewSmsCount');
+    const quickForm = document.getElementById('form-quick-send');
+
+    // State trackers
+    let currentTemplateContent = "";
+    let extractedVariables = [];
+
+    // ==========================================
+    // 2. FETCH DATA & INITIALIZE
     // ==========================================
     try {
-        // Fetch setup data from the BFF
         const res = await fetch('/messages/api/dashboard-data'); 
         const { data } = await res.json();
         
         // Populate Sender IDs
-        const senderSelect = document.getElementById('singleSenderId');
         senderSelect.innerHTML = '<option value="" disabled selected>Select Sender ID</option>';
         if (data.senderIds) {
             data.senderIds.forEach(sender => {
                 if (sender.status === 'APPROVED') {
-                    senderSelect.innerHTML += `<option value="${sender.id}">${sender.name || sender.id}</option>`;
+                    senderSelect.innerHTML += `<option value="${sender.id}">${sender.sender_id}</option>`;
                 }
             });
         }
 
         // Populate Templates
-        const templateSelect = document.getElementById('singleTemplate');
         if (data.templates) {
             data.templates.forEach(tpl => {
-                if (tpl.status === 'approved') {
-                    // Store the raw content in a data attribute so we can inject it
+                if (tpl.status === 'APPROVED') {
                     const safeContent = tpl.content.replace(/"/g, '&quot;');
                     templateSelect.innerHTML += `<option value="${tpl.name}" data-content="${safeContent}">${tpl.name}</option>`;
                 }
@@ -35,35 +49,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ==========================================
-    // 2. UI INTERACTIONS
+    // 3. MESSAGE CONSTRUCTOR LOGIC
     // ==========================================
-    const templateSelect = document.getElementById('singleTemplate');
-    const messageArea = document.getElementById('singleMessage');
-    const charCount = document.getElementById('singleCharCount');
 
-    // Auto-fill message area when a template is selected
-    templateSelect.addEventListener('change', (e) => {
-        if (e.target.value === "") {
-            messageArea.value = "";
-        } else {
-            const selectedOption = e.target.options[e.target.selectedIndex];
-            messageArea.value = selectedOption.getAttribute('data-content');
+    function updatePreview(text) {
+        if (!text.trim()) {
+            livePreviewText.innerHTML = "<em>Type a message or select a template to see the preview here...</em>";
+            livePreviewText.classList.add('text-muted');
+            charCount.innerText = "0";
+            smsCount.innerText = "0";
+            return;
         }
-        // Trigger input event to update character count
-        messageArea.dispatchEvent(new Event('input'));
-        messageArea.focus();
+
+        livePreviewText.innerHTML = text;
+        livePreviewText.classList.remove('text-muted');
+        
+        const len = text.length;
+        charCount.innerText = len;
+        smsCount.innerText = Math.ceil(len / 160);
+    }
+
+    function buildCompiledMessage() {
+        if (templateSelect.value === "") {
+            return manualMessage.value;
+        }
+
+        let compiled = currentTemplateContent;
+        extractedVariables.forEach(variable => {
+            // Find the dynamically generated input for this variable
+            const inputEl = document.getElementById(`var_${variable}`);
+            const val = inputEl && inputEl.value ? inputEl.value : `[${variable}]`;
+            
+            // Replace all instances of the variable in the string
+            // Uses global regex to catch duplicates like "Hello [NAME], how are you [NAME]?"
+            const regex = new RegExp(`\\[${variable}\\]`, 'g');
+            compiled = compiled.replace(regex, val);
+        });
+
+        return compiled;
+    }
+
+    // Handle Template Selection
+    templateSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        dynamicInputsList.innerHTML = ""; // Clear old inputs
+        extractedVariables = [];
+
+        if (val === "") {
+            // CUSTOM MESSAGE MODE
+            manualGroup.classList.remove('d-none');
+            dynamicContainer.classList.add('d-none');
+            manualMessage.required = true;
+            updatePreview(manualMessage.value);
+        } else {
+            // TEMPLATE MODE
+            manualGroup.classList.add('d-none');
+            manualMessage.required = false;
+            
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            currentTemplateContent = selectedOption.getAttribute('data-content');
+
+            // Regex to find anything inside brackets, e.g., [NAME], [AMOUNT]
+            const regex = /\[(.*?)\]/g;
+            const matches = [...currentTemplateContent.matchAll(regex)].map(m => m[1]);
+            
+            // Get unique variables only
+            extractedVariables = [...new Set(matches)];
+
+            if (extractedVariables.length > 0) {
+                dynamicContainer.classList.remove('d-none');
+                
+                // Build an input field for each variable
+                extractedVariables.forEach(variable => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 form-group mb-2';
+                    col.innerHTML = `
+                        <label class="small fw-bold text-primary">${variable}</label>
+                        <input type="text" id="var_${variable}" class="form-control form-control-sm dynamic-var-input" placeholder="Value for ${variable}">
+                    `;
+                    dynamicInputsList.appendChild(col);
+                });
+
+                // Attach event listeners to new inputs to update preview live
+                document.querySelectorAll('.dynamic-var-input').forEach(input => {
+                    input.addEventListener('input', () => updatePreview(buildCompiledMessage()));
+                });
+            } else {
+                // Template has no variables
+                dynamicContainer.classList.add('d-none');
+            }
+
+            updatePreview(buildCompiledMessage());
+        }
     });
 
-    // Character counter
-    messageArea.addEventListener('input', (e) => {
-        charCount.innerText = e.target.value.length;
+    // Handle Manual Textarea Input
+    manualMessage.addEventListener('input', () => {
+        updatePreview(manualMessage.value);
     });
 
     // ==========================================
-    // 3. SUBMIT SINGLE SMS
+    // 4. SUBMIT TO API
     // ==========================================
-    const quickForm = document.getElementById('form-quick-send');
-    
     quickForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -71,11 +158,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.disabled = true;
         btn.innerText = 'Sending...';
 
+        // Build the replacements map
+        const replacements = {};
+        extractedVariables.forEach(variable => {
+            const inputEl = document.getElementById(`var_${variable}`);
+            if (inputEl) {
+                // Key matches exactly what is inside the bracket, without brackets
+                replacements[variable] = inputEl.value; 
+            }
+        });
+
         const payload = {
             msisdn: document.getElementById('singlePhone').value,
-            senderId: document.getElementById('singleSenderId').value,
-            templateName: document.getElementById('singleTemplate').value,
-            message: messageArea.value
+            sender_id: senderSelect.value,
+            template_name: templateSelect.value === "" ? "" : templateSelect.value,
+            message: templateSelect.value === "" ? manualMessage.value : "",
+            replacements: replacements // The map[string]string your Go backend expects
         };
 
         try {
@@ -88,10 +186,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await res.json();
             
             if (res.ok) {
-                // If you implemented the global toast notification, you can use showToast() here
                 alert('Message dispatched successfully!');
+                
+                // Reset form gracefully
                 quickForm.reset();
-                charCount.innerText = "0";
+                templateSelect.dispatchEvent(new Event('change')); // Trigger reset logic
             } else {
                 alert(result.error || 'Failed to send message.');
             }

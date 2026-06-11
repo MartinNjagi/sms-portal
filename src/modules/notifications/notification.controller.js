@@ -7,7 +7,7 @@ notificationsController.renderNotificationsPage = async (req, res, next) => {
         // Go side already differentiates admin vs client on GET /notifications
         const notifications = await goEngineWrapper.getNotifications(req);
 
-        res.render('notifications/index.njk', {
+        res.render('notification/index.njk', {
             title: 'Notification Centre',
             alias: 'notifications',
             user: req.user,

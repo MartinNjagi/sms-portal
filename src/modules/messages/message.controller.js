@@ -33,14 +33,23 @@ messageController.renderSingleDashboard = async (req, res, next) => {
 
 messageController.renderTemplates = async (req, res, next) => {
     try {
-        // Fetch existing templates for the view
-        const templatesRes = await goEngineWrapper.getTemplates(req).catch(() => ({ data: [] }));
+        // Admin override check
+        const targetClientId = (req.user.role === 'ADMIN' && req.query.client_id) 
+            ? req.query.client_id 
+            : null;
+
+        // Concurrently fetch both resources
+        const [templatesRes, sendersRes] = await Promise.all([
+            goEngineWrapper.getTemplates(req, targetClientId).catch(() => ({ data: [] })),
+            goEngineWrapper.getSenderIds(req, targetClientId).catch(() => ({ data: [] }))
+        ]);
         
         res.render('message/templates.njk', {
-            title: 'Message Templates',
+            title: 'Templates & Sender IDs',
             alias: 'templates',
             user: req.user,
-            templates: templatesRes.data
+            templates: templatesRes.data,
+            senderIds: sendersRes.data
         });
     } catch (error) {
         next(error);
@@ -189,6 +198,18 @@ messageController.getCampaignStats = async (req, res, next) => {
        } catch (error) {
            res.status(500).json({ error: error.message });
        }
+};
+messageController.editCampaign = async (req, res, next) => {
+       try {
+        const campaignId = req.params.id;
+        const payload = req.body;
+        
+        await goEngineWrapper.editCampaign(campaignId, payload, req);
+        
+        res.status(200).json({ success: true, message: "Updated" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 

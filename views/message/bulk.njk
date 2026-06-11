@@ -7,7 +7,7 @@
         <a href="/messages/single" class="btn btn-outline-secondary">Send Single SMS</a>
     </div>
     <div>
-        <a href="/messages/templates" class="btn btn-outline-secondary">Manage Templates</a>
+        <a href="/messages/templates" class="btn btn-outline-secondary">Templates and Sender IDs</a>
     </div>
 </div>
 
@@ -18,7 +18,7 @@
             <h3 class="text-success mb-0">KES <span id="stat-balance">--</span></h3>
         </div>
     </div>
-    </div>
+</div>
 
 <ul class="nav nav-tabs mb-4" id="campaignTabs" role="tablist">
     <li class="nav-item">
@@ -48,7 +48,7 @@
                                 <label>Sender ID</label>
                                 <select id="campSenderId" class="form-control" required>
                                     <option value="" disabled selected>Loading...</option>
-                                    </select>
+                                </select>
                             </div>
 
                             <div class="form-group mb-3">
@@ -70,24 +70,36 @@
                                 <label>CSV File (Phone Numbers)</label>
                                 <input type="file" id="campCsvFile" class="form-control" accept=".csv">
                             </div>
+
+                            <div class="form-group mb-3 bg-light p-3 rounded">
+                                <label class="font-weight-bold text-dark mb-1">Schedule For <small class="text-muted">(Optional)</small></label>
+                                <input type="datetime-local" id="campScheduledFor" class="form-control">
+                                <small class="text-muted d-block mt-1">Leave blank to send immediately.</small>
+                            </div>
                         </div>
 
                         <div class="col-md-7 pl-4">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h5 class="m-0">Message Content</h5>
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#templateModal">Use Template</button>
+                            <h5 class="mb-4">Message Configuration</h5>
+
+                            <!-- NEW: Dropdown Selector -->
+                            <div class="form-group mb-3">
+                                <label class="font-weight-bold">Select Template <span class="text-danger">*</span></label>
+                                <select id="campTemplateName" class="form-control" required>
+                                    <option value="" disabled selected>Loading templates...</option>
+                                </select>
                             </div>
 
                             <div class="form-group mb-3">
-                                <textarea id="campMessage" class="form-control" rows="8" placeholder="Type your message here..." required></textarea>
+                                <label class="font-weight-bold">Template Preview</label>
+                                <textarea id="campMessage" class="form-control bg-light" rows="6" placeholder="Select a template above to see the preview..." readonly></textarea>
                                 <div class="d-flex justify-content-between mt-2 text-muted small">
                                     <span id="charCount">0 Characters</span>
                                     <span id="smsCount">0 SMS Pages</span>
                                 </div>
                             </div>
 
-                            <button type="submit" id="btn-submit-campaign" class="btn btn-primary btn-lg w-100 mt-3">
-                                Send Campaign
+                            <button type="submit" id="btn-submit-campaign" class="btn btn-primary btn-lg w-100 mt-4">
+                                Send / Schedule Campaign
                             </button>
                             
                             <div class="progress mt-3 d-none" id="uploadProgress" style="height: 10px;">
@@ -110,8 +122,8 @@
                             <th>Status</th>
                             <th>Sent</th>
                             <th>Failed</th>
-                            <th>Date</th>
-                            <th>Action</th>
+                            <th>Date/Scheduled Time</th>
+                            <th class="text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody id="outboxTableBody">
@@ -124,77 +136,42 @@
 
 </div>
 
-<div class="modal fade" id="templateModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Select Template</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="list-group" id="templateList">
-                    <p class="text-center text-muted">Loading templates...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="campaignStatsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    </div>
+
+<div class="modal fade" id="editCampaignModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header border-bottom-0 bg-light">
-                <h5 class="modal-title">
-                    Campaign: <span id="modalCampName" class="font-weight-bold text-primary">Loading...</span>
-                </h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body p-4">
-                
-                <div class="row text-center">
-                    <div class="col-md-3 mb-3">
-                        <div class="card shadow-sm border-0 border-left-secondary py-2">
-                            <div class="card-body">
-                                <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Total Contacts</div>
-                                <div class="h4 mb-0 font-weight-bold text-gray-800" id="modalStatTotal">--</div>
-                            </div>
-                        </div>
+            <form id="form-edit-campaign">
+                <div class="modal-header border-bottom-0 bg-light">
+                    <h5 class="modal-title text-dark font-weight-bold">Edit Scheduled Campaign</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="editCampId">
+                    
+                    <div class="form-group mb-3">
+                        <label>Campaign Name</label>
+                        <input type="text" id="editCampName" class="form-control" required>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card shadow-sm border-0 border-left-info py-2">
-                            <div class="card-body">
-                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pending / Processing</div>
-                                <div class="h4 mb-0 font-weight-bold text-gray-800" id="modalStatPending">--</div>
-                            </div>
-                        </div>
+
+                    <div class="form-group mb-3">
+                        <label>Reschedule Time</label>
+                        <input type="datetime-local" id="editCampScheduledFor" class="form-control" required>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card shadow-sm border-0 border-left-success py-2">
-                            <div class="card-body">
-                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Successfully Sent</div>
-                                <div class="h4 mb-0 font-weight-bold text-gray-800" id="modalStatSent">--</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card shadow-sm border-0 border-left-danger py-2">
-                            <div class="card-body">
-                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Failed</div>
-                                <div class="h4 mb-0 font-weight-bold text-gray-800" id="modalStatFailed">--</div>
-                            </div>
-                        </div>
+                    
+                    <div class="alert alert-info small mt-3 mb-0">
+                        <i class="fas fa-info-circle"></i> To change the recipient list or message content, please delete this campaign and create a new one.
                     </div>
                 </div>
-
-                <div class="mt-4 text-center">
-                    <button class="btn btn-outline-secondary" id="btn-refresh-stats">Refresh Live Stats</button>
-                    </div>
-
-            </div>
+                <div class="modal-footer border-top-0 bg-light">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" id="btn-save-edit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-
 
 {% endblock %}
 

@@ -50,24 +50,57 @@ document.addEventListener('DOMContentLoaded', async () => {
             groupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
         });
         
+
+        // Populate templates
+        const templateSelect = document.getElementById('campTemplateName');
+        const msgArea = document.getElementById('campMessage');
+
+        templateSelect.innerHTML = '<option value="" disabled selected>Select an approved template</option>';
+        if (data.templates && data.templates.length > 0) {
+            data.templates.forEach(tpl => {
+                if (tpl.status === 'APPROVED') {
+                    const safeContent = tpl.content.replace(/"/g, '&quot;');
+                    templateSelect.innerHTML += `<option value="${tpl.name}" data-content="${safeContent}">${tpl.name}</option>`;
+                }
+            });
+
+            // 👉 NEW: Update preview when a template is selected
+            templateSelect.addEventListener('change', (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                const tplContent = selectedOption.getAttribute('data-content');
+                
+                msgArea.value = tplContent;
+                msgArea.dispatchEvent(new Event('input')); // Force character count update
+            });
+
+        } else {
+            templateSelect.innerHTML = '<option value="" disabled selected>No approved templates found</option>';
+        }
+
+
         // Populate Outbox Table
         const tbody = document.getElementById('outboxTableBody');
         tbody.innerHTML = '';
         data.recentCampaigns.forEach(c => {
+            
+            let actionsHtml = `<button class="btn btn-sm btn-outline-info view-campaign-btn" data-id="${c.id}" data-name="${c.name}">View</button>`;
+            
+            // 👉 NEW: Add Edit Button only if it's SCHEDULED
+            if (c.status === 'SCHEDULED') {
+                actionsHtml += ` <button class="btn btn-sm btn-outline-warning edit-campaign-btn ml-1" 
+                                    data-id="${c.id}" 
+                                    data-name="${c.name}" 
+                                    data-time="${c.scheduled_for}">Edit</button>`;
+            }
+
             tbody.innerHTML += `
                 <tr>
                     <td><strong>${c.name}</strong></td>
-                    <td><span class="badge badge-${c.status === 'COMPLETED' ? 'success' : 'warning'}">${c.status}</span></td>
+                    <td><span class="badge badge-${c.status === 'SCHEDULED' ? 'info' : (c.status === 'COMPLETED' ? 'success' : 'warning')}">${c.status}</span></td>
                     <td>${c.sent || 0}</td>
                     <td>${c.failed || 0}</td>
-                    <td>${new Date(c.date).toLocaleDateString()}</td> 
-                    <td>
-                        <button class="btn btn-sm btn-outline-info view-campaign-btn" 
-                                data-id="${c.id}" 
-                                data-name="${c.name}">
-                            View Stats
-                        </button>
-                    </td>
+                    <td>${c.status === 'SCHEDULED' ? new Date(c.scheduled_for).toLocaleString() : new Date(c.date).toLocaleDateString()}</td> 
+                    <td class="text-right">${actionsHtml}</td>
                 </tr>
             `;
         });
@@ -98,11 +131,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progress = document.getElementById('uploadProgress');
         
         const payload = {
-            name: document.getElementById('campName').value,
-            sender_id: document.getElementById('campSenderId').value,
-            messageContent: document.getElementById('campMessage').value,
-            targetType: campTargetType.value
+        campaignName: document.getElementById('campName').value,
+        senderId: document.getElementById('campSenderId').value,
+        messageContent: document.getElementById('campMessage').value, // The preview content
+        templateName: document.getElementById('campTemplateName').value, // The actual template name
+        targetType: campTargetType.value
         };
+
+        // 👉 NEW: Parse the scheduled time
+        const schedTime = document.getElementById('campScheduledFor').value;
+        if (schedTime) {
+            payload.scheduledFor = new Date(schedTime).toISOString();
+        }
 
         submitBtn.disabled = true;
 
@@ -178,6 +218,66 @@ document.addEventListener('DOMContentLoaded', async () => {
             progress.classList.add('d-none');
         }
     });
+
+// 👉 NEW: Attach Edit Listeners
+    document.querySelectorAll('.edit-campaign-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.target.getAttribute('data-id');
+            const name = e.target.getAttribute('data-name');
+            const scheduledTime = e.target.getAttribute('data-time');
+
+            document.getElementById('editCampId').value = id;
+            document.getElementById('editCampName').value = name;
+            
+            // Format time for the datetime-local input (YYYY-MM-DDThh:mm)
+            if (scheduledTime) {
+                const date = new Date(scheduledTime);
+                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+                document.getElementById('editCampScheduledFor').value = date.toISOString().slice(0,16);
+            }
+
+            $('#editCampaignModal').modal('show');
+        });
+    });
+
+    // 👉 NEW: Handle Edit Submission
+    const editForm = document.getElementById('form-edit-campaign');
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-edit');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            const id = document.getElementById('editCampId').value;
+            const payload = {
+                name: document.getElementById('editCampName').value,
+                // Convert back to standard ISO for the Go backend
+                scheduled_for: new Date(document.getElementById('editCampScheduledFor').value).toISOString()
+            };
+
+            try {
+                const res = await fetch(`/messages/api/campaigns/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    alert('Campaign updated successfully!');
+                    location.reload();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Failed to update campaign.');
+                }
+            } catch (err) {
+                alert('A network error occurred.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Save Changes';
+            }
+        });
+    }
 
 
     // ==========================================
