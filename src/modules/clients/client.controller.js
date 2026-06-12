@@ -6,10 +6,7 @@ const clientController = {};
 // Render the Admin Overview
 clientController.renderIndex = async (req, res, next) => {
     try {
-        const clients = await goEngineWrapper.getAllClients(req);
-
-        console.log("ResponseClintQuery",clients);
-        
+        const clients = await goEngineWrapper.getAllClients(req);      
 
         res.render('client/index.njk', {
             title: 'Client Management',

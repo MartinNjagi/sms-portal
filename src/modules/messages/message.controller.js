@@ -132,16 +132,25 @@ messageController.getUploadUrl = async (req, res, next) => {
 // Handles Scenario A: Sending to a Saved Group
 messageController.triggerCampaign = async (req, res, next) => {
     try {
-        const { campaignName, senderId, messageContent, groupId } = req.body;
+        const { campaignName, senderId, templateName, groupId, scheduledFor } = req.body;
         
         const goPayload = {
-            Name: campaignName,
-            SenderID: senderId,
-            TemplateName: messageContent,
-            ContactGroup: parseInt(groupId, 10)
+            name: campaignName,
+            sender_id: senderId,
+            template_name: templateName, 
+            contact_group: groupId.toString() 
         };
 
-        const result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        let result;
+        
+        // 👉 ROUTING LOGIC: Launch immediately OR Schedule for later
+        if (scheduledFor) {
+            goPayload.scheduled_for = scheduledFor;
+            result = await goEngineWrapper.scheduleCampaign(goPayload, req);
+        } else {
+            result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        }
+
         res.status(202).json({ success: true, message: result.message });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -151,19 +160,25 @@ messageController.triggerCampaign = async (req, res, next) => {
 // Handles Scenario B: Uploading a CSV
 messageController.triggerBulkCampaign = async (req, res, next) => {
     try {
-        const { campaignName, senderId, messageContent, fileKey } = req.body;
+        const { campaignName, senderId, templateName, fileKey, scheduledFor } = req.body;
         
-        // Generate the accessible download URL for Go
-        const fileUrl = await s3Service.generatePresignedGetUrl(fileKey);
-
         const goPayload = {
-            Name: campaignName,
-            SenderID: senderId,
-            TemplateName: messageContent,
-            FileURL: fileUrl
+            name: campaignName,
+            sender_id: senderId,
+            template_name: templateName,
+            file_url: fileKey 
         };
 
-        const result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        let result;
+        
+        // 👉 ROUTING LOGIC: Launch immediately OR Schedule for later
+        if (scheduledFor) {
+            goPayload.scheduled_for = scheduledFor;
+            result = await goEngineWrapper.scheduleCampaign(goPayload, req);
+        } else {
+            result = await goEngineWrapper.launchBulkCampaign(goPayload, req);
+        }
+
         res.status(202).json({ success: true, message: result.message });
     } catch (error) {
         res.status(500).json({ error: error.message });

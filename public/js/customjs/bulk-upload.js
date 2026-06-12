@@ -141,8 +141,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 👉 NEW: Parse the scheduled time
         const schedTime = document.getElementById('campScheduledFor').value;
         if (schedTime) {
-            payload.scheduledFor = new Date(schedTime).toISOString();
-        }
+
+        const date = new Date(schedTime);
+        const offset = -date.getTimezoneOffset(); // Returns offset in minutes
+        const sign = offset >= 0 ? '+' : '-';
+        const pad = num => String(Math.floor(Math.abs(num))).padStart(2, '0');
+
+        payload.scheduledFor = date.getFullYear() +
+            '-' + pad(date.getMonth() + 1) +
+            '-' + pad(date.getDate()) +
+            'T' + pad(date.getHours()) +
+            ':' + pad(date.getMinutes()) +
+            ':' + pad(date.getSeconds()) +
+            sign + pad(offset / 60) + ':' + pad(offset % 60);
+            }
 
         submitBtn.disabled = true;
 

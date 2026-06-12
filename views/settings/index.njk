@@ -3,8 +3,23 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4">
-        <h2 class="h3 mb-2 mb-sm-0 text-gray-800">{{ title | default('Configuration & Settings') }}</h2>
+        <h2 class="h3 mb-2 mb-sm-0 text-gray-800">{{ title | default('Account & Billing Settings') }}</h2>
     </div>
+
+    {% if user.role == 'ADMIN' %}
+    <div class="alert alert-dark d-flex flex-column flex-md-row justify-content-between align-items-md-center shadow-sm mb-4">
+        <div>
+            <strong>🛡️ Admin Override Mode</strong>
+            <p class="mb-0 small text-muted">You are currently viewing configuration settings for:</p>
+        </div>
+        <div class="mt-2 mt-md-0 d-flex gap-2 align-items-center">
+            <select id="adminClientSwitcher" class="form-select form-select-sm w-auto">
+                <option value="">My Own Config (Admin)</option>
+                </select>
+            <button id="btn-load-client" class="btn btn-sm btn-light">Load</button>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="row">
         <div class="col-lg-3 col-md-4 mb-4">
@@ -14,7 +29,7 @@
                         <span class="me-2">👤</span> Profile Info
                     </a>
                     <a class="list-group-item list-group-item-action d-flex align-items-center" data-bs-toggle="list" href="#api" role="tab">
-                        <span class="me-2">🔌</span> API & Webhooks
+                        <span class="me-2">🔌</span> API Keys & Webhooks
                     </a>
                     
                     {% if user.role == 'ADMIN' %}
@@ -33,28 +48,73 @@
                     <div class="card shadow-sm border-0">
                         <div class="card-body p-4">
                             <h4 class="mb-3">Profile Information</h4>
-                            <p class="text-muted mb-4">Manage your account details, security preferences, and timezone.</p>
+                            <p class="text-muted mb-4">Manage your account details and security preferences.</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted small text-uppercase">Account Name</label>
+                                    <input type="text" class="form-control bg-light" value="{{ user.name }}" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted small text-uppercase">Email Address</label>
+                                    <input type="email" class="form-control bg-light" value="{{ user.email }}" readonly>
+                                </div>
                             </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="api" role="tabpanel">
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h4 class="m-0">API Keys</h4>
+                                    <p class="text-muted small m-0">Manage access keys for the REST API.</p>
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="btn-generate-key">+ Generate New Key</button>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Key Prefix</th>
+                                            <th>Created</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for key in apiKeys %}
+                                        <tr id="row-key-{{ key.id }}">
+                                            <td><code class="text-dark">{{ key.prefix }}****************</code></td>
+                                            <td>{{ key.created_at | truncate(10, true, "") }}</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger btn-revoke-key" data-id="{{ key.id }}">Revoke</button>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted py-4">No API keys generated yet.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="card shadow-sm border-0">
                         <div class="card-body p-4">
-                            <h4 class="mb-4">Developer API & Webhooks</h4>
-                            <div class="mb-4">
-                                <label class="form-label fw-bold">Live API Key</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control bg-light" value="{{ devSettings.apiKey }}" readonly>
-                                    <button class="btn btn-outline-secondary" type="button">Copy</button>
+                            <h4 class="mb-3">DLR Webhook</h4>
+                            <p class="text-muted small mb-4">The Go Engine will POST Delivery Reports (DLRs) to this URL.</p>
+                            
+                            <form id="form-webhook" autocomplete="off">
+                                <div class="mb-3">
+                                    <input type="url" class="form-control" id="webhookUrl" value="{{ billingConfig.webhook_url }}" placeholder="https://your-domain.com/api/dlr">
                                 </div>
-                            </div>
-                            <div class="mb-4">
-                                <label class="form-label fw-bold">DLR Webhook URL</label>
-                                <input type="url" class="form-control" value="{{ devSettings.webhookUrl }}" placeholder="https://your-domain.com/api/dlr">
-                                <div class="form-text">The Go Engine will POST Delivery Reports (DLRs) to this URL.</div>
-                            </div>
-                            <button class="btn btn-success px-4">Save Webhook Settings</button>
+                                <button type="submit" class="btn btn-success px-4">Save Webhook</button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -68,29 +128,29 @@
                             <p class="text-muted small m-0">Credit or debit a client's account directly.</p>
                         </div>
                         <div class="card-body p-4">
-                            <form id="form-manual-adjustment">
+                            <form id="form-manual-adjustment" autocomplete="off">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label class="fw-bold">Target Client</label>
-                                        <select id="adjClientId" class="form-control admin-client-dropdown" required>
+                                        <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
+                                        <select id="adjClientId" class="form-select admin-client-dropdown" required>
                                             <option value="" disabled selected>Loading clients...</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label class="fw-bold">Action</label>
-                                        <select id="adjAction" class="form-control" required>
-                                            <option value="credit">Credit (Add Funds)</option>
-                                            <option value="debit">Debit (Deduct Funds)</option>
+                                        <label class="fw-bold">Action <span class="text-danger">*</span></label>
+                                        <select id="adjAction" class="form-select" required>
+                                            <option value="CREDIT">Credit (Add Funds)</option>
+                                            <option value="DEBIT">Debit (Deduct Funds)</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label class="fw-bold">Amount (Credits/KES)</label>
+                                        <label class="fw-bold">Amount (Credits/KES) <span class="text-danger">*</span></label>
                                         <input type="number" id="adjCredits" class="form-control" min="1" required>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label class="fw-bold">Description / Reason</label>
+                                        <label class="fw-bold">Description / Reason <span class="text-danger">*</span></label>
                                         <input type="text" id="adjDescription" class="form-control" placeholder="e.g., Promotional Bonus, SLA Refund" required>
                                     </div>
                                 </div>
@@ -105,11 +165,11 @@
                             <p class="text-muted small m-0">Override base rates or SLA refund settings for specific tenants.</p>
                         </div>
                         <div class="card-body p-4">
-                            <form id="form-billing-config">
+                            <form id="form-billing-config" autocomplete="off">
                                 <div class="row">
                                     <div class="col-md-12 mb-3">
-                                        <label class="fw-bold">Target Client</label>
-                                        <select id="cfgClientId" class="form-control admin-client-dropdown" required>
+                                        <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
+                                        <select id="cfgClientId" class="form-select admin-client-dropdown" required>
                                             <option value="" disabled selected>Loading clients...</option>
                                         </select>
                                     </div>
@@ -118,9 +178,10 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="fw-bold">Base SMS Rate (KES)</label>
                                         <input type="number" id="cfgBaseRate" class="form-control" step="0.01" min="0" placeholder="e.g., 0.80">
+                                        <small class="text-muted">Leave blank to keep existing rate.</small>
                                     </div>
-                                    <div class="col-md-6 mb-3 d-flex align-items-end">
-                                        <div class="form-check mb-2">
+                                    <div class="col-md-6 mb-3 d-flex align-items-center mt-3 mt-md-0">
+                                        <div class="form-check">
                                             <input class="form-check-input" type="checkbox" id="cfgRefund" value="true">
                                             <label class="form-check-label fw-bold" for="cfgRefund">
                                                 Refund on Failed Delivery?
@@ -136,6 +197,27 @@
                 </div>
                 {% endif %}
 
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="apiKeyModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title text-success"><i class="fas fa-check-circle"></i> API Key Generated</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="text-danger fw-bold">Please copy this key immediately. It will not be shown again.</p>
+                <div class="input-group mb-3">
+                    <input type="text" id="newApiKeyValue" class="form-control text-center font-monospace fs-5" readonly>
+                    <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('newApiKeyValue').value); alert('Copied!');">Copy</button>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 bg-light">
+                <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal" onclick="location.reload()">I have copied it securely</button>
             </div>
         </div>
     </div>

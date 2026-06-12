@@ -67,84 +67,59 @@ const extractIP = (req) =>
     || req?.socket?.remoteAddress;
 
 /**
- * HMAC-SHA256 signs timestamp + body, matching Go's VerifySignature middleware.
- * Format: "<unix_seconds>.<body>" — both sides must agree on this exactly.
+ * HMAC-SHA256 signs timestamp+nonce+body, matching Go's VerifySignature middleware.
+ * Format: "<unix_seconds>.<nonce>.<body>" — both sides must agree on this exactly.
  */
-const signPayload = (body = '', timestamp) => {
-  if (typeof body !== 'string') {
-    throw new TypeError('HMAC body must be a string');
-  }
-  if (!process.env.INTERNAL_SERVICE_TOKEN) {
-    throw new Error('INTERNAL_SERVICE_TOKEN missing');
-  }
-  if (!timestamp) {
-    throw new Error('Timestamp is required for HMAC signing');
-  }
-
-  const payload = `${timestamp}.${body}`;
-
-  return crypto
-    .createHmac('sha256', process.env.INTERNAL_SERVICE_TOKEN)
-    .update(payload)
-    .digest('hex');
+const signPayload = (body, timestamp, nonce) => {
+    const secret = process.env.INTERNAL_SERVICE_TOKEN;
+    
+    // Format must match Go exactly: timestamp.nonce.body
+    const dataToSign = `${timestamp}.${nonce}.${body}`;
+    
+    return crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
 };
 
-// --- ANTI-REPLAY VARIABLES ---
-// Must be declared OUTSIDE the function so they persist across calls
-let lastGeneratedUnix = 0;
-let microOffset = 0;
-
-/**
- * Builds the header block for every internal service call.
- */
 const withContext = (req, extraHeaders = {}, payload = null) => {
-  let body = '';
-  try {
-    body = payload ? JSON.stringify(payload) : '';
-  } catch (err) {
-    throw new Error(`Failed to serialize request payload for HMAC signing: ${err.message}`);
-  }
-
-  // --- ANTI-REPLAY FIX ---
-  // Ensure every single request gets a unique timestamp to prevent identical 
-  // signatures on parallel GET requests within the same second.
-  let currentUnix = Math.floor(Date.now() / 1000);
-  
-  if (currentUnix === lastGeneratedUnix) {
-      microOffset += 3; 
-  } else {
-      lastGeneratedUnix = currentUnix;
-      microOffset = 0;
-  }
-  
-  const timestamp = (currentUnix + microOffset).toString();
-  // -----------------------
-
-  const signature = signPayload(body, timestamp);
-
-  if (!signature) {
-    throw new Error('Failed to generate HMAC signature');
-  }
-
-  const headers = {
-    'X-Signature': signature,
-    'X-Timestamp': timestamp,
-    ...(extractIP(req) && { 'X-Real-IP': extractIP(req) }),
-    ...extraHeaders,
-  };
-
-  const auth = headers.Authorization;
-  if (auth) {
-    if (!auth.startsWith('Bearer ')) {
-      throw new Error('Malformed Authorization header');
+    let body = '';
+    try {
+        body = payload ? JSON.stringify(payload) : '';
+    } catch (err) {
+        throw new Error(`Failed to serialize request payload: ${err.message}`);
     }
-    const token = auth.slice(7).trim();
-    if (!token || token === 'undefined' || token === 'null') {
-      throw new Error('Invalid bearer token');
-    }
-  }
 
-  return { headers };
+    // 1. Clean, accurate timestamp (No offsets!)
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    
+    // 2. Generate a secure, unique Nonce
+    const nonce = crypto.randomUUID();
+
+    // 3. Generate Signature
+    const signature = signPayload(body, timestamp, nonce);
+
+    if (!signature) {
+        throw new Error('Failed to generate HMAC signature');
+    }
+
+    const headers = {
+        'X-Signature': signature,
+        'X-Timestamp': timestamp,
+        'X-Nonce': nonce, // Send the nonce to Go!
+        ...(extractIP(req) && { 'X-Real-IP': extractIP(req) }),
+        ...extraHeaders,
+    };
+
+    const auth = headers.Authorization;
+    if (auth) {
+        if (!auth.startsWith('Bearer ')) {
+            throw new Error('Malformed Authorization header');
+        }
+        const token = auth.slice(7).trim();
+        if (!token || token === 'undefined' || token === 'null') {
+            throw new Error('Invalid bearer token');
+        }
+    }
+
+    return { headers };
 };
 
 const getJWT = (req) => {
@@ -248,6 +223,18 @@ const getAllClients = async (req) => {
     }
 };
 
+const updateClientStatus = async (targetClientId, status, req) => {
+    try {
+        const payload = { status };
+        const response = await clients.identity.patch(
+            `/api/v1/clients/${targetClientId}/status`,
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateClientStatus'); }
+};
+
 const getRoles = async (req) => {
     try {
         const token = getJWT(req);
@@ -331,6 +318,33 @@ const getAPIKeys = async (req, clientId = null) => {
     } catch (error) {
         handleEngineError(error, 'getAPIKeys');
     }
+};
+
+const generateAPIKey = async (payload, targetClientId = null, req) => {
+    try {
+        let url = '/api/v1/keys';
+        if (targetClientId) url += `?client_id=${targetClientId}`;
+
+        const response = await clients.identity.post(
+            url,
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'generateAPIKey'); }
+};
+
+const revokeAPIKey = async (keyId, targetClientId = null, req) => {
+    try {
+        let url = `/api/v1/keys/${keyId}`;
+        if (targetClientId) url += `?client_id=${targetClientId}`;
+
+        const response = await clients.identity.delete(
+            url,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'revokeAPIKey'); }
 };
 
 const assignRolePermissions = async (req) => {

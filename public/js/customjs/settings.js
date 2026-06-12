@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ==========================================
-    // 1. TAB NAVIGATION FIX
+    // 1. TAB NAVIGATION FIX (Bootstrap 5)
     // ==========================================
     const tabLinks = document.querySelectorAll('#settings-list-tab .list-group-item');
     const tabPanes = document.querySelectorAll('.tab-content .tab-pane');
@@ -13,8 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tabPanes.forEach(p => p.classList.remove('show', 'active'));
             
             this.classList.add('active');
-            const targetPane = document.querySelector(this.getAttribute('href'));
+            const targetId = this.getAttribute('href');
+            const targetPane = document.querySelector(targetId);
             if (targetPane) targetPane.classList.add('show', 'active');
+            
+            // Save tab to URL hash for refresh persistence
+            if(history.pushState) {
+                history.pushState(null, null, targetId);
+            }
         });
     });
 
@@ -24,104 +30,204 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // 2. ADMIN TOOLS LOGIC
+    // 2. ADMIN CONTEXT SWITCHER
     // ==========================================
+    const clientSwitcher = document.getElementById('adminClientSwitcher');
+    const loadClientBtn = document.getElementById('btn-load-client');
     const adminClientDropdowns = document.querySelectorAll('.admin-client-dropdown');
-    
-    // Only fetch clients if the admin dropdowns exist on the page
-    if (adminClientDropdowns.length > 0) {
-        
-        // Fetch clients to populate the target selectors
-        fetch('/clients') // Adjust to your actual identity/clients BFF endpoint
+
+    // Utility: Parse query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetClientId = urlParams.get('client_id');
+
+    // Fetch clients to populate ALL administrative dropdowns
+    if (clientSwitcher || adminClientDropdowns.length > 0) {
+        fetch('/clients') // Adjust if your identity BFF path is different
             .then(res => res.json())
             .then(data => {
                 const clients = Array.isArray(data) ? data : (data.data || []);
-                adminClientDropdowns.forEach(dropdown => {
-                    dropdown.innerHTML = '<option value="" disabled selected>Select a client</option>';
+                
+                // Populate the top context switcher
+                if (clientSwitcher) {
                     clients.forEach(c => {
-                        dropdown.innerHTML += `<option value="${c.id}">[${c.id}] ${c.name}</option>`;
+                        const option = document.createElement('option');
+                        option.value = c.id;
+                        option.innerText = `[${c.id}] ${c.name}`;
+                        if (targetClientId == c.id) option.selected = true;
+                        clientSwitcher.appendChild(option);
+                    });
+                }
+
+                // Populate the billing form dropdowns
+                adminClientDropdowns.forEach(dropdown => {
+                    clients.forEach(c => {
+                        const option = document.createElement('option');
+                        option.value = c.id;
+                        option.innerText = `[${c.id}] ${c.name}`;
+                        dropdown.appendChild(option);
                     });
                 });
             })
             .catch(console.error);
 
-        // Handle Manual Wallet Adjustment Submission
-        const adjForm = document.getElementById('form-manual-adjustment');
-        if (adjForm) {
-            adjForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('btn-submit-adj');
-                btn.disabled = true;
-                btn.innerText = 'Processing...';
-
-                const payload = {
-                    client_id: parseInt(document.getElementById('adjClientId').value, 10),
-                    action: document.getElementById('adjAction').value,
-                    credits: parseInt(document.getElementById('adjCredits').value, 10),
-                    description: document.getElementById('adjDescription').value
-                };
-
-                try {
-                    const res = await fetch('/settings/api/admin/wallet-adjust', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await res.json();
-
-                    if (res.ok) {
-                        alert('Wallet adjusted successfully.');
-                        adjForm.reset();
-                    } else {
-                        alert(result.error || 'Adjustment failed.');
-                    }
-                } catch (err) {
-                    alert('Network error.');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerText = 'Apply Adjustment';
+        if (loadClientBtn) {
+            loadClientBtn.addEventListener('click', () => {
+                const selectedId = clientSwitcher.value;
+                const url = new URL(window.location.href);
+                if (selectedId) {
+                    url.searchParams.set('client_id', selectedId);
+                } else {
+                    url.searchParams.delete('client_id');
                 }
-            });
-        }
-
-        // Handle Billing Configuration Submission
-        const cfgForm = document.getElementById('form-billing-config');
-        if (cfgForm) {
-            cfgForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('btn-submit-cfg');
-                btn.disabled = true;
-                btn.innerText = 'Updating...';
-
-                const clientId = document.getElementById('cfgClientId').value;
-                const baseRateVal = document.getElementById('cfgBaseRate').value;
-                
-                const payload = {};
-                // Only send fields if they were filled out, avoiding accidental overwrites
-                if (baseRateVal !== "") payload.base_sms_rate = parseFloat(baseRateVal);
-                payload.refund_on_failed_delivery = document.getElementById('cfgRefund').checked;
-
-                try {
-                    const res = await fetch(`/settings/api/admin/billing-config/${clientId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await res.json();
-
-                    if (res.ok) {
-                        alert('Billing configuration updated successfully.');
-                        cfgForm.reset();
-                    } else {
-                        alert(result.error || 'Configuration update failed.');
-                    }
-                } catch (err) {
-                    alert('Network error.');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerText = 'Update Configuration';
-                }
+                window.location.href = url.toString();
             });
         }
     }
+
+    // ==========================================
+    // 3. API KEY MANAGEMENT
+    // ==========================================
+    const btnGenerateKey = document.getElementById('btn-generate-key');
+    if (btnGenerateKey) {
+        btnGenerateKey.addEventListener('click', async () => {
+            btnGenerateKey.disabled = true;
+            btnGenerateKey.innerText = 'Generating...';
+
+            try {
+                // Pass targetClientId if Admin is generating a key for a client
+                const payload = targetClientId ? { client_id: targetClientId } : {};
+                
+                const res = await fetch('/settings/api/keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                
+                if (res.ok && result.data && result.data.key) {
+                    document.getElementById('newApiKeyValue').value = result.data.key;
+                    // Assuming Bootstrap 5
+                    new bootstrap.Modal(document.getElementById('apiKeyModal')).show();
+                } else {
+                    alert(result.error || 'Failed to generate API Key.');
+                }
+            } catch (err) {
+                alert('A network error occurred.');
+            } finally {
+                btnGenerateKey.disabled = false;
+                btnGenerateKey.innerText = '+ Generate New Key';
+            }
+        });
+    }
+
+    document.querySelectorAll('.btn-revoke-key').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            if (!confirm('Are you sure you want to revoke this API key? This action is permanent and will break any integrations using it.')) return;
+            
+            const keyId = e.target.getAttribute('data-id');
+            e.target.disabled = true;
+
+            try {
+                const payload = targetClientId ? { client_id: targetClientId } : {};
+                
+                const res = await fetch(`/settings/api/keys/${keyId}`, { 
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    document.getElementById(`row-key-${keyId}`).remove();
+                } else {
+                    const result = await res.json();
+                    alert(result.error || 'Failed to revoke API Key.');
+                    e.target.disabled = false;
+                }
+            } catch (err) {
+                alert('A network error occurred.');
+                e.target.disabled = false;
+            }
+        });
+    });
+
+    // ==========================================
+    // 4. ADMIN BILLING ACTIONS
+    // ==========================================
+    const adjForm = document.getElementById('form-manual-adjustment');
+    if (adjForm) {
+        adjForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-adj');
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+
+            const payload = {
+                client_id: parseInt(document.getElementById('adjClientId').value, 10),
+                action: document.getElementById('adjAction').value,
+                credits: parseInt(document.getElementById('adjCredits').value, 10),
+                description: document.getElementById('adjDescription').value
+            };
+
+            try {
+                const res = await fetch('/settings/api/admin/wallet-adjust', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (res.ok) {
+                    alert('Wallet adjusted successfully.');
+                    adjForm.reset();
+                } else {
+                    alert(result.error || 'Adjustment failed.');
+                }
+            } catch (err) {
+                alert('Network error.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Apply Adjustment';
+            }
+        });
+    }
+
+    const cfgForm = document.getElementById('form-billing-config');
+    if (cfgForm) {
+        cfgForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-cfg');
+            btn.disabled = true;
+            btn.innerText = 'Updating...';
+
+            const clientId = document.getElementById('cfgClientId').value;
+            const baseRateVal = document.getElementById('cfgBaseRate').value;
+            
+            const payload = {};
+            if (baseRateVal !== "") payload.base_sms_rate = parseFloat(baseRateVal);
+            payload.refund_on_failed_delivery = document.getElementById('cfgRefund').checked;
+
+            try {
+                const res = await fetch(`/settings/api/admin/billing-config/${clientId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (res.ok) {
+                    alert('Billing configuration updated successfully.');
+                    cfgForm.reset();
+                } else {
+                    alert(result.error || 'Configuration update failed.');
+                }
+            } catch (err) {
+                alert('Network error.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Update Configuration';
+            }
+        });
+    }
+
 });
