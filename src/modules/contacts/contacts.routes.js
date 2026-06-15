@@ -16,6 +16,7 @@ router.delete('/api/groups/:id', contactsController.deleteGroup);
 // Contact Management
 router.get('/api/groups/:id/contacts', contactsController.getGroupContacts);
 router.post('/api/contacts', contactsController.addContacts);
+router.put('/api/groups/:id/contacts', contactsController.updateGroupContacts); // new
 router.delete('/api/contacts/:phone_id', contactsController.deleteContact);
 router.get('/api/contacts/upload-url', contactsController.getUploadUrl);
 router.post('/api/contacts/trigger-import', contactsController.triggerCsvImport);

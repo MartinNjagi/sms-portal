@@ -651,12 +651,25 @@ const addContacts = async (payload, req) => {
     try {
         const token = getJWT(req);
         const response = await clients.sms.post(
-            '/api/v1/contact/create', // Updated to match Go routing
-            payload, // { group_id: int, contacts: [] }
+            '/api/v1/contacts/create', 
+            payload, 
             withContext(req, { Authorization: `Bearer ${token}` }, payload)
         );
         return response.data;
     } catch (error) { handleEngineError(error, 'addContacts'); }
+};
+
+const updateGroupContacts = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        const { id, contacts } = payload;
+        const response = await clients.sms.put(
+            `/api/v1/contacts/group/${id}`,
+            { contacts },
+            withContext(req, { Authorization: `Bearer ${token}` }, { contacts })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateGroupContacts'); }
 };
 
 const uploadContactsCSV = async (payload, req) => {
@@ -880,7 +893,7 @@ module.exports = {
     getTemplates,createTemplate,updateTemplate,deleteTemplate,approveTemplate,
     getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,
     getContactsByGroup,listContacts,addContacts,updateContact,deleteContact,
-    
+    updateGroupContacts,
     // Notification
     markAllNotificationsRead,markNotificationRead,
     getNotifications,

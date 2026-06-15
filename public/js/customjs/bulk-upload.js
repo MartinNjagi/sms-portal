@@ -83,26 +83,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         tbody.innerHTML = '';
         data.recentCampaigns.forEach(c => {
             
-            let actionsHtml = `<button class="btn btn-sm btn-outline-info view-campaign-btn" data-id="${c.id}" data-name="${c.name}">View</button>`;
-            
-            // 👉 NEW: Add Edit Button only if it's SCHEDULED
-            if (c.status === 'SCHEDULED') {
-                actionsHtml += ` <button class="btn btn-sm btn-outline-warning edit-campaign-btn ml-1" 
-                                    data-id="${c.id}" 
-                                    data-name="${c.name}" 
-                                    data-time="${c.scheduled_for}">Edit</button>`;
-            }
+        // 👉 DEBUG: See exactly what Go is sending you
+        console.log(`Campaign [${c.name}] - Raw Date: '${c.created_at}' | Raw Scheduled: '${c.scheduled_for}'`);
 
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${c.name}</strong></td>
-                    <td><span class="badge badge-${c.status === 'SCHEDULED' ? 'info' : (c.status === 'COMPLETED' ? 'success' : 'warning')}">${c.status}</span></td>
-                    <td>${c.sent || 0}</td>
-                    <td>${c.failed || 0}</td>
-                    <td>${c.status === 'SCHEDULED' ? new Date(c.scheduled_for).toLocaleString() : new Date(c.date).toLocaleDateString()}</td> 
-                    <td class="text-right">${actionsHtml}</td>
-                </tr>
-            `;
+        // 👉 FIX: Safely parse SQL-style dates by replacing the space with a 'T'
+        const safeFormatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            
+            // Replaces "2026-06-19 20:23:00" with "2026-06-19T20:23:00"
+            const isoString = dateString.replace(' ', 'T'); 
+            const d = new Date(isoString);
+            
+            // If it's still invalid, just return the raw string rather than crashing
+            return isNaN(d) ? dateString : d.toLocaleString();
+        };
+
+        let actionsHtml = `<button class="btn btn-sm btn-outline-info view-campaign-btn" data-id="${c.id}" data-name="${c.name}">View</button>`;
+        
+        if (c.status === 'SCHEDULED') {
+            actionsHtml += ` <button class="btn btn-sm btn-outline-warning edit-campaign-btn ml-1" 
+                                data-id="${c.id}" 
+                                data-name="${c.name}" 
+                                data-time="${c.scheduled_for}">Edit</button>`;
+        }
+
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${c.name}</strong></td>
+                <td><span class="badge badge-${c.status === 'SCHEDULED' ? 'info' : (c.status === 'COMPLETED' ? 'success' : 'warning')}">${c.status}</span></td>
+                <td>${c.sent || 0}</td>
+                <td>${c.failed || 0}</td>
+                
+                <td>${c.status === 'SCHEDULED' ? safeFormatDate(c.scheduled_for) : safeFormatDate(c.date)}</td> 
+                
+                <td class="text-right">${actionsHtml}</td>
+            </tr>
+        `;
         });
         if(data.recentCampaigns.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No recent campaigns.</td></tr>';
         
@@ -142,18 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const schedTime = document.getElementById('campScheduledFor').value;
         if (schedTime) {
 
-        const date = new Date(schedTime);
-        const offset = -date.getTimezoneOffset(); // Returns offset in minutes
-        const sign = offset >= 0 ? '+' : '-';
-        const pad = num => String(Math.floor(Math.abs(num))).padStart(2, '0');
-
-        payload.scheduledFor = date.getFullYear() +
-            '-' + pad(date.getMonth() + 1) +
-            '-' + pad(date.getDate()) +
-            'T' + pad(date.getHours()) +
-            ':' + pad(date.getMinutes()) +
-            ':' + pad(date.getSeconds()) +
-            sign + pad(offset / 60) + ':' + pad(offset % 60);
+        payload.scheduledFor = `${schedTime}:00+03:00`;
             }
 
         submitBtn.disabled = true;
@@ -305,8 +310,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('modalStatSent').innerText = '...';
         document.getElementById('modalStatFailed').innerText = '...';
 
-        // 2. Open Modal (Assuming jQuery/Bootstrap 4)
-        $('#campaignStatsModal').modal('show');
+        // 2. Open Modal (Bootstrap 5 Vanilla JS)
+        const statsModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('campaignStatsModal'));
+        statsModal.show();
 
         // 3. Fetch Data immediately
         await fetchAndPopulateStats(id);

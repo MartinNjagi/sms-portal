@@ -10,6 +10,9 @@ contactsController.renderIndex = async (req, res, next) => {
         // Fetch the user's groups from Go using the full `req` object
         const groupsResponse = await goEngineWrapper.getContactGroups(req) || [];
 
+        console.log("GroupsResponse", groupsResponse);
+        
+
         res.render('contacts/index.njk', {
             title: 'Address Book',
             alias: 'contacts',
@@ -70,15 +73,41 @@ contactsController.getGroupContacts = async (req, res, next) => {
 
 contactsController.addContacts = async (req, res, next) => {
     try {
-        const { groupId, contacts } = req.body; // contacts array of { phone, name }
+        const { groupId, contacts } = req.body;
         if (!groupId || !contacts || contacts.length === 0) {
             return res.status(400).json({ error: 'Group ID and contacts array are required.' });
         }
-        
-        const result = await goEngineWrapper.addContacts({ groupId, contacts }, req);
+
+        // Fix: Go expects snake_case
+        const result = await goEngineWrapper.addContacts({ 
+            group_id: parseInt(groupId, 10),  // was: groupId
+            contacts 
+        }, req);
+
         res.status(201).json({ success: true, data: result.data });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
+    }
+};
+
+// New: maps to PUT /api/v1/contacts/group/:id
+contactsController.updateGroupContacts = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { contacts } = req.body;
+
+        if (!contacts || contacts.length === 0) {
+            return res.status(400).json({ error: 'Contacts array is required.' });
+        }
+
+        const result = await goEngineWrapper.updateGroupContacts(
+            { id: parseInt(id, 10), contacts },
+            req
+        );
+
+        res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+        next(error);
     }
 };
 
