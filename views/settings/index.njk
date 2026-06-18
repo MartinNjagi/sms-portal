@@ -15,7 +15,10 @@
         <div class="mt-2 mt-md-0 d-flex gap-2 align-items-center">
             <select id="adminClientSwitcher" class="form-select form-select-sm w-auto">
                 <option value="">My Own Config (Admin)</option>
-                </select>
+                {% for c in clients %}
+                    <option value="{{ c.id }}" {% if targetClientId == c.id %}selected{% endif %}>[{{ c.id }}] {{ c.name }}</option>
+                {% endfor %}
+            </select>
             <button id="btn-load-client" class="btn btn-sm btn-light">Load</button>
         </div>
     </div>
@@ -133,7 +136,10 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
                                         <select id="adjClientId" class="form-select admin-client-dropdown" required>
-                                            <option value="" disabled selected>Loading clients...</option>
+                                            <option value="" disabled selected>Select a client...</option>
+                                            {% for c in clients %}
+                                                <option value="{{ c.id }}">[{{ c.id }}] {{ c.name }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -170,7 +176,10 @@
                                     <div class="col-md-12 mb-3">
                                         <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
                                         <select id="cfgClientId" class="form-select admin-client-dropdown" required>
-                                            <option value="" disabled selected>Loading clients...</option>
+                                            <option value="" disabled selected>Select a client...</option>
+                                            {% for c in clients %}
+                                                <option value="{{ c.id }}">[{{ c.id }}] {{ c.name }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                 </div>

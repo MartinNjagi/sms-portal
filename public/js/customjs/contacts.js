@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <tbody>
                                     ${contacts.map(c => `
                                         <tr>
-                                            <td class="fw-medium">${c.phoneNumber || c}</td>
+                                            <td class="fw-medium">${c.msisdn || c}</td>
                                             <td><span class="badge bg-success bg-opacity-10 text-success">Active</span></td>
                                         </tr>
                                     `).join('')}

@@ -7,7 +7,6 @@ const { requireAuth } = require('../../middlewares/requireAuth');
 // Apply the auth middleware to ALL routes in this file
 router.use(requireAuth); 
 
-// This will map to /dashboard/ when mounted
-// router.get('/', dashboardController.renderDashboard);
+ router.get('/', dashboardController.renderDashboard);
 
 module.exports = router;

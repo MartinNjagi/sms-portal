@@ -90,14 +90,7 @@ messageController.getMessageDashboardData = async (req, res, next) => {
             goEngineWrapper.getTemplates(req).catch(() => ({ data: [] }))
         ]);
 
-        const recentCampaigns = (campaignsRes.data || []).map(camp => ({
-            id: camp.ID,
-            name: camp.Name,
-            status: camp.Status,
-            sent: 0, // Update via outbox stats later if needed
-            failed: 0,
-            date: camp.CreatedAt
-        }));
+        const recentCampaigns = (campaignsRes.data || [])
 
         res.status(200).json({
             success: true,
@@ -187,14 +180,12 @@ messageController.triggerBulkCampaign = async (req, res, next) => {
 
 messageController.sendSingle = async (req, res, next) => {
     try {
-        const { msisdn, senderId, templateName, message } = req.body;
-        
+        const { msisdn, sender_id, message } = req.body;        
         // Maps exactly to your Go SingleSMSRequest struct
         const goPayload = {
             msisdn: msisdn,
-            sender_id: senderId,
-            template_name: templateName || "",
-            message: message || ""
+            sender_id: sender_id,
+            message: message
         };
 
         const result = await goEngineWrapper.sendSingleSMS(goPayload, req);
@@ -227,5 +218,51 @@ messageController.editCampaign = async (req, res, next) => {
     }
 };
 
+messageController.requestSenderId = async (req, res, next) => {
+    try {
+        // Match the frontend inputs
+        const { sender_id, justification } = req.body;
+        const result = await goEngineWrapper.createSenderId({ sender_id, justification }, req);
+        res.status(201).json({ success: true, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+messageController.createTemplateAsync = async (req, res, next) => {
+    try {
+        const { name, content } = req.body;
+        const result = await goEngineWrapper.createTemplate({ name, content }, req);
+        res.status(201).json({ success: true, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Handles Admin Approval/Rejection of Sender IDs
+messageController.reviewSenderId = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status, reason } = req.body; // e.g., 'APPROVED' or 'REJECTED'
+        
+        const result = await goEngineWrapper.approveSenderId(id, { status, reason }, req);
+        res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Handles Admin Approval/Rejection of Templates
+messageController.reviewTemplate = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status, reason } = req.body; 
+        
+        const result = await goEngineWrapper.approveTemplate(id, { status, reason }, req);
+        res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 module.exports = messageController;

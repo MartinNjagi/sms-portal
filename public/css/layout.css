@@ -125,3 +125,9 @@ body {
     color: #0f5132;
     border: 1px solid #a3cfbb;
 }
+
+.badge {
+    background-color: #334155;
+    color: #8ae0b8;
+    border: 1px solid #a3cfbb;
+}

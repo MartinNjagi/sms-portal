@@ -85,12 +85,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- Feature Modules (BFF Routes) ---
-// Instead of one giant routes/index.js, we mount modular feature routes
+// --- Feature Modules (BFF Routes) Imports ---
 const { requireAuth } = require('./src/middlewares/requireAuth');
 const authController = require('./src/modules/auth/auth.controller');
-const dashboardController = require('./src/modules/dashboard/dashboard.controller');
-const contactsController = require('./src/modules/contacts/contacts.controller');
+
 const authRoutes = require('./src/modules/auth/auth.routes');
 const dashboardRoutes = require('./src/modules/dashboard/dashboard.routes');
 const messageRoutes = require('./src/modules/messages/message.routes');
@@ -100,17 +98,15 @@ const userRoutes = require('./src/modules/users/user.routes');
 const roleRoutes = require('./src/modules/roles/role.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 const billingRoutes = require('./src/modules/billing/billing.routes');
-const renderError = require('./src/services/renderError');
 const sseRoutes = require('./src/modules/sse/sse.routes');
 const notifRoutes = require('./src/modules/notifications/notification.routes');
-const contactRoutes = require('./src/modules/contacts/contacts.routes');
 
-// --- Feature Modules (BFF Routes) ---
+// --- Feature Modules (BFF Mounts) ---
 app.get('/login', authController.renderLogin);
 app.get('/logout', authController.logout);
-app.get('/dashboard', requireAuth, dashboardController.renderDashboard);
-app.use('/api/auth', authRoutes);             // Handles /login, /logout
-//app.use('/dashboard', dashboardRoutes); // Handles /dashboard
+
+app.use('/api/auth', authRoutes);             
+app.use('/dashboard', dashboardRoutes); // <-- Fixed! Uses the router now
 app.use('/messages', messageRoutes); 
 app.use('/contacts', contactsRoutes);    
 app.use('/clients', clientRoutes);       
@@ -118,9 +114,8 @@ app.use('/settings', settingsRoutes);
 app.use('/accounts', billingRoutes);
 app.use('/users', userRoutes);   
 app.use('/roles', roleRoutes);
-app.use('/sse',sseRoutes); 
+app.use('/sse', sseRoutes); 
 app.use('/notifications', notifRoutes);
-
 
 app.get('/', (req, res) => {
     res.redirect('/login');

@@ -73,19 +73,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (templateSelect.value === "") {
             return manualMessage.value;
         }
-
         let compiled = currentTemplateContent;
         extractedVariables.forEach(variable => {
-            // Find the dynamically generated input for this variable
             const inputEl = document.getElementById(`var_${variable}`);
-            const val = inputEl && inputEl.value ? inputEl.value : `[${variable}]`;
+            // Fallback placeholder (defaults to curly brackets if empty)
+            const val = inputEl && inputEl.value ? inputEl.value : `{${variable}}`;
             
-            // Replace all instances of the variable in the string
-            // Uses global regex to catch duplicates like "Hello [NAME], how are you [NAME]?"
-            const regex = new RegExp(`\\[${variable}\\]`, 'g');
+            // Replace both [variable] and {variable} globally
+            const regex = new RegExp(`\\[${variable}\\]|\\{${variable}\\}`, 'g');
             compiled = compiled.replace(regex, val);
         });
-
         return compiled;
     }
 
@@ -109,9 +106,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectedOption = e.target.options[e.target.selectedIndex];
             currentTemplateContent = selectedOption.getAttribute('data-content');
 
-            // Regex to find anything inside brackets, e.g., [NAME], [AMOUNT]
-            const regex = /\[(.*?)\]/g;
-            const matches = [...currentTemplateContent.matchAll(regex)].map(m => m[1]);
+            // Regex to find anything inside square brackets [] OR curly brackets {}
+            const regex = /\[(.*?)\]|\{(.*?)\}/g;
+
+            // m[1] captures text inside [], m[2] captures text inside {}
+            const matches = [...currentTemplateContent.matchAll(regex)].map(m => m[1] || m[2]);
             
             // Get unique variables only
             extractedVariables = [...new Set(matches)];
@@ -168,13 +167,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        if (!senderSelect.value) {
+            alert('Select a sender ID');
+            return;
+        }
+
         const payload = {
-            msisdn: document.getElementById('singlePhone').value,
+            msisdn: document.getElementById('singlePhone').value.trim(),
             sender_id: senderSelect.value,
-            template_name: templateSelect.value === "" ? "" : templateSelect.value,
-            message: templateSelect.value === "" ? manualMessage.value : "",
-            replacements: replacements // The map[string]string your Go backend expects
+            message: buildCompiledMessage().trim()
         };
+
+        console.log('Outgoing SendSingle', payload);
+
+        if (!payload.message) {
+            alert('Message cannot be empty');
+            return;
+        }
 
         try {
             const res = await fetch('/messages/api/single', {

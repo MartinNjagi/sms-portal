@@ -20,7 +20,9 @@ router.post('/api/trigger-bulk', messageController.triggerBulkCampaign); // CSV 
 router.post('/api/single', messageController.sendSingle);
 router.post('/api/campaigns/:id', messageController.editCampaign);
 router.post('/api/campaigns/:id/stats', messageController.getCampaignStats);
-
-
+router.post('/api/sender-ids', messageController.requestSenderId);
+router.post('/api/templates', messageController.createTemplateAsync);
+router.put('/api/sender-ids/:id/review', messageController.reviewSenderId);
+router.put('/api/templates/:id/review', messageController.reviewTemplate);
 
 module.exports = router;

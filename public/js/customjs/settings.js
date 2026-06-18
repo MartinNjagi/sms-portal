@@ -34,58 +34,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     const clientSwitcher = document.getElementById('adminClientSwitcher');
     const loadClientBtn = document.getElementById('btn-load-client');
-    const adminClientDropdowns = document.querySelectorAll('.admin-client-dropdown');
-
-    // Utility: Parse query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetClientId = urlParams.get('client_id');
-
-    // Fetch clients to populate ALL administrative dropdowns
-    if (clientSwitcher || adminClientDropdowns.length > 0) {
-        fetch('/clients') // Adjust if your identity BFF path is different
-            .then(res => res.json())
-            .then(data => {
-                const clients = Array.isArray(data) ? data : (data.data || []);
-                
-                // Populate the top context switcher
-                if (clientSwitcher) {
-                    clients.forEach(c => {
-                        const option = document.createElement('option');
-                        option.value = c.id;
-                        option.innerText = `[${c.id}] ${c.name}`;
-                        if (targetClientId == c.id) option.selected = true;
-                        clientSwitcher.appendChild(option);
-                    });
-                }
-
-                // Populate the billing form dropdowns
-                adminClientDropdowns.forEach(dropdown => {
-                    clients.forEach(c => {
-                        const option = document.createElement('option');
-                        option.value = c.id;
-                        option.innerText = `[${c.id}] ${c.name}`;
-                        dropdown.appendChild(option);
-                    });
-                });
-            })
-            .catch(console.error);
-
-        if (loadClientBtn) {
-            loadClientBtn.addEventListener('click', () => {
-                const selectedId = clientSwitcher.value;
-                const url = new URL(window.location.href);
-                if (selectedId) {
-                    url.searchParams.set('client_id', selectedId);
-                } else {
-                    url.searchParams.delete('client_id');
-                }
-                window.location.href = url.toString();
-            });
-        }
+    
+    if (loadClientBtn && clientSwitcher) {
+        loadClientBtn.addEventListener('click', () => {
+            const selectedId = clientSwitcher.value;
+            const url = new URL(window.location.href);
+            if (selectedId) {
+                url.searchParams.set('client_id', selectedId);
+            } else {
+                url.searchParams.delete('client_id');
+            }
+            window.location.href = url.toString();
+        });
     }
 
     // ==========================================
-    // 3. API KEY MANAGEMENT
+    // 3. WEBHOOK MANAGEMENT (NEW)
+    // ==========================================
+    const formWebhook = document.getElementById('form-webhook');
+    if (formWebhook) {
+        formWebhook.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = formWebhook.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            try {
+                const res = await fetch('/settings/api/webhook', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhook_url: document.getElementById('webhookUrl').value })
+                });
+                const result = await res.json();
+                
+                if (res.ok) {
+                    alert('Webhook updated successfully!');
+                } else {
+                    alert(result.error || 'Failed to save webhook.');
+                }
+            } catch (err) {
+                alert('A network error occurred.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Save Webhook';
+            }
+        });
+    }
+
+    // ==========================================
+    // 4. API KEY MANAGEMENT
     // ==========================================
     const btnGenerateKey = document.getElementById('btn-generate-key');
     if (btnGenerateKey) {
@@ -152,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-    // 4. ADMIN BILLING ACTIONS
+    // 5. ADMIN BILLING ACTIONS
     // ==========================================
     const adjForm = document.getElementById('form-manual-adjustment');
     if (adjForm) {

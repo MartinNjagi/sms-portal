@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         data.recentCampaigns.forEach(c => {
             
         // 👉 DEBUG: See exactly what Go is sending you
+        
         console.log(`Campaign [${c.name}] - Raw Date: '${c.created_at}' | Raw Scheduled: '${c.scheduled_for}'`);
 
         // 👉 FIX: Safely parse SQL-style dates by replacing the space with a 'T'
@@ -114,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>${c.sent || 0}</td>
                 <td>${c.failed || 0}</td>
                 
-                <td>${c.status === 'SCHEDULED' ? safeFormatDate(c.scheduled_for) : safeFormatDate(c.date)}</td> 
+                <td>${c.status === 'SCHEDULED' ? safeFormatDate(c.scheduled_for) : safeFormatDate(c.created_at)}</td> 
                 
                 <td class="text-right">${actionsHtml}</td>
             </tr>

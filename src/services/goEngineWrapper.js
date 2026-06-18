@@ -464,7 +464,7 @@ const getWalletData = async (req, targetClientId = null) => {
 const manualWalletAdjustment = async (payload, req) => {
     try {
         const response = await clients.wallet.post(
-            '/api/v1/wallet/manual-adjustment', // Check your Go router for the exact path!
+            '/api/v1/admin/wallet/adjust', // Check your Go router for the exact path!
             payload,
             withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
         );
@@ -493,7 +493,7 @@ const updateBillingConfig = async (targetClientId, payload, req) => {
 const listCampaigns = async (req, page = 1, limit = 10) => {
     try {
         const response = await clients.sms.get(
-            `/api/v1/campaigns?page=${page}&limit=${limit}`,
+            `/api/v1/campaigns?page=${page}&page_size=${limit}`,
             withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
         );
         return response.data;
@@ -569,7 +569,7 @@ const getCampaignStats = async (id, req) => {
 const sendSingleSMS = async (payload, req) => {
     try {
         const response = await clients.sms.post(
-            '/api/v1/campaigns/single',
+            '/api/v1/internal/send-sms',
             payload,
             withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
         );

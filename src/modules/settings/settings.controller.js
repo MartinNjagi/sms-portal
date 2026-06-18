@@ -112,4 +112,17 @@ settingsController.updateClientStatus = async (req, res) => {
     }
 };
 
+
+settingsController.updateMyWebhook = async (req, res) => {
+    try {
+        const payload = { webhook_url: req.body.webhook_url };
+        // Safely force the target to be the logged-in user's own client ID
+        await goEngineWrapper.updateBillingConfig(req.user.client_id, payload, req);
+        res.status(200).json({ success: true, message: 'Webhook updated.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 module.exports = settingsController;
