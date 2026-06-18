@@ -87,6 +87,7 @@ app.use((req, res, next) => {
 
 // --- Feature Modules (BFF Routes) Imports ---
 const { requireAuth } = require('./src/middlewares/requireAuth');
+const renderError = require('./src/services/renderError');
 const authController = require('./src/modules/auth/auth.controller');
 
 const authRoutes = require('./src/modules/auth/auth.routes');
