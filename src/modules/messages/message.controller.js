@@ -21,10 +21,8 @@ messageController.renderBulkDashboard = async (req, res, next) => {
 
 messageController.renderSingleDashboard = async (req, res, next) => {
     try {
-
-         const balRes=goEngineWrapper.getClientBalance(req);
+        const balRes = await goEngineWrapper.getClientBalance(req);
         const balance = balRes.data.balance
-
 
         res.render('message/index.njk', {
             title: 'Messaging Dashboard',
@@ -65,8 +63,6 @@ messageController.renderTemplates = async (req, res, next) => {
 // Handle traditional form POST from the Template Modal
 messageController.createTemplateSync = async (req, res, next) => {
     try {
-        // The modal form sends 'Template Name' and 'Message Content'
-        // Adjust these keys based on your actual form input 'name' attributes
         const { templateName, templateContent } = req.body; 
         
         await goEngineWrapper.createTemplate({ 
@@ -88,7 +84,7 @@ messageController.createTemplateSync = async (req, res, next) => {
 messageController.getMessageDashboardData = async (req, res, next) => {
     try {
         // Concurrently fetch all data needed to render the Dashboard and fill the dropdowns!
-        const [walletRes, campaignsRes, sendersRes, groupsRes,templatesRes] = await Promise.all([
+        const [walletRes, campaignsRes, sendersRes, groupsRes, templatesRes] = await Promise.all([
             goEngineWrapper.getClientBalance(req).catch(() => ({ data: { balance: 0 } })),
             goEngineWrapper.listCampaigns(req, 1, 5).catch(() => ({ data: [] })),
             goEngineWrapper.getSenderIds(req).catch(() => ({ data: [] })),
@@ -113,12 +109,22 @@ messageController.getMessageDashboardData = async (req, res, next) => {
     }
 };
 
+messageController.getUnifiedOutbox = async (req, res, next) => {
+    try {
+        const page = req.query.page || 1;
+        const limit = req.query.limit || 50;
+        const result = await goEngineWrapper.getUnifiedOutbox(req, page,limit);
+        res.status(200).json({ success: true, data: result.data, pagination: result.pagination });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load outbox ledger' });
+    }
+};
+
 messageController.getUploadUrl = async (req, res, next) => {
     try {
         const { fileName, fileType } = req.query;
         if (!fileName || !fileType) return res.status(400).json({ error: 'Missing file details.' });
 
-        // Generate a unique S3 key
         const uniqueFileKey = `campaigns/${req.user.client_id}/${Date.now()}_${fileName}`;
         const uploadUrl = await s3Service.generatePresignedPutUrl(uniqueFileKey, fileType);
 
@@ -128,7 +134,6 @@ messageController.getUploadUrl = async (req, res, next) => {
     }
 };
 
-// Handles Scenario A: Sending to a Saved Group
 messageController.triggerCampaign = async (req, res, next) => {
     try {
         const { campaignName, senderId, templateName, groupId, scheduledFor } = req.body;
@@ -142,7 +147,6 @@ messageController.triggerCampaign = async (req, res, next) => {
 
         let result;
         
-        // 👉 ROUTING LOGIC: Launch immediately OR Schedule for later
         if (scheduledFor) {
             goPayload.scheduled_for = scheduledFor;
             result = await goEngineWrapper.scheduleCampaign(goPayload, req);
@@ -156,7 +160,6 @@ messageController.triggerCampaign = async (req, res, next) => {
     }
 };
 
-// Handles Scenario B: Uploading a CSV
 messageController.triggerBulkCampaign = async (req, res, next) => {
     try {
         const { campaignName, senderId, templateName, fileKey, scheduledFor } = req.body;
@@ -170,7 +173,6 @@ messageController.triggerBulkCampaign = async (req, res, next) => {
 
         let result;
         
-        // 👉 ROUTING LOGIC: Launch immediately OR Schedule for later
         if (scheduledFor) {
             goPayload.scheduled_for = scheduledFor;
             result = await goEngineWrapper.scheduleCampaign(goPayload, req);
@@ -187,7 +189,6 @@ messageController.triggerBulkCampaign = async (req, res, next) => {
 messageController.sendSingle = async (req, res, next) => {
     try {
         const { msisdn, sender_id, message } = req.body;        
-        // Maps exactly to your Go SingleSMSRequest struct
         const goPayload = {
             msisdn: msisdn,
             sender_id: sender_id,
@@ -211,6 +212,7 @@ messageController.getCampaignStats = async (req, res, next) => {
            res.status(500).json({ error: error.message });
        }
 };
+
 messageController.editCampaign = async (req, res, next) => {
        try {
         const campaignId = req.params.id;
@@ -226,7 +228,6 @@ messageController.editCampaign = async (req, res, next) => {
 
 messageController.requestSenderId = async (req, res, next) => {
     try {
-        // Match the frontend inputs
         const { sender_id, justification } = req.body;
         const result = await goEngineWrapper.createSenderId({ sender_id, justification }, req);
         res.status(201).json({ success: true, data: result.data });
@@ -245,11 +246,10 @@ messageController.createTemplateAsync = async (req, res, next) => {
     }
 };
 
-// Handles Admin Approval/Rejection of Sender IDs
 messageController.reviewSenderId = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { status, reason } = req.body; // e.g., 'APPROVED' or 'REJECTED'
+        const { status, reason } = req.body; 
         
         const result = await goEngineWrapper.approveSenderId(id, { status, reason }, req);
         res.status(200).json({ success: true, data: result.data });
@@ -258,7 +258,6 @@ messageController.reviewSenderId = async (req, res, next) => {
     }
 };
 
-// Handles Admin Approval/Rejection of Templates
 messageController.reviewTemplate = async (req, res, next) => {
     try {
         const { id } = req.params;

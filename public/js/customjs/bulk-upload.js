@@ -26,32 +26,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('smsCount').innerText = `${Math.ceil(len / 160)} SMS Pages`;
     });
 
-    // Fetch Dashboard Data (Balance, Outbox, Setup dropdowns)
+    // Fetch Dashboard Data (Balance, Campaigns, Setup dropdowns)
     try {
         const res = await fetch('/messages/api/dashboard-data'); 
         const { data } = await res.json();
         
         document.getElementById('stat-balance').innerText = data.balance.toFixed(2);
         
-        // 👉 ADD THIS: Populate Sender IDs Dropdown
         const senderSelect = document.getElementById('campSenderId');
         senderSelect.innerHTML = '<option value="" disabled selected>Select Sender ID</option>';
         data.senderIds.forEach(sender => {
-            // Only allow them to select approved IDs
             if (sender.status === 'APPROVED') {
                 senderSelect.innerHTML += `<option value="${sender.id}">${sender.sender_id}</option>`;
             }
         });
 
-        // Populate Groups Dropdown
         const groupSelect = document.getElementById('campGroupId');
         groupSelect.innerHTML = '<option value="" disabled selected>Select Group</option>';
         data.groups.forEach(group => {
             groupSelect.innerHTML += `<option value="${group.id}">${group.name}</option>`;
         });
-        
 
-        // Populate templates
         const templateSelect = document.getElementById('campTemplateName');
         const msgArea = document.getElementById('campMessage');
 
@@ -64,7 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
 
-            // 👉 NEW: Update preview when a template is selected
             templateSelect.addEventListener('change', (e) => {
                 const selectedOption = e.target.options[e.target.selectedIndex];
                 const tplContent = selectedOption.getAttribute('data-content');
@@ -72,59 +66,53 @@ document.addEventListener('DOMContentLoaded', async () => {
                 msgArea.value = tplContent;
                 msgArea.dispatchEvent(new Event('input')); // Force character count update
             });
-
         } else {
             templateSelect.innerHTML = '<option value="" disabled selected>No approved templates found</option>';
         }
 
-
-        // Populate Outbox Table
-        const tbody = document.getElementById('outboxTableBody');
-        tbody.innerHTML = '';
-        data.recentCampaigns.forEach(c => {
-            
-            // 👉 FIX: Safely parse SQL-style dates by replacing the space with a 'T'
-        const safeFormatDate = (dateString) => {
-            if (!dateString) return 'N/A';
-            
-            // Replaces "2026-06-19 20:23:00" with "2026-06-19T20:23:00"
-            const isoString = dateString.replace(' ', 'T'); 
-            const d = new Date(isoString);
-            
-            // If it's still invalid, just return the raw string rather than crashing
-            return isNaN(d) ? dateString : d.toLocaleString();
-        };
-
-        let actionsHtml = `<button class="btn btn-sm btn-outline-info view-campaign-btn" data-id="${c.id}" data-name="${c.name}">View</button>`;
+        // Populate Campaigns Table
+        const campaignsTbody = document.getElementById('campaignsTableBody');
+        campaignsTbody.innerHTML = '';
         
-        if (c.status === 'SCHEDULED') {
-            actionsHtml += ` <button class="btn btn-sm btn-outline-warning edit-campaign-btn ml-1" 
-                                data-id="${c.id}" 
-                                data-name="${c.name}" 
-                                data-time="${c.scheduled_for}">Edit</button>`;
-        }
+        if (data.recentCampaigns.length === 0) {
+            campaignsTbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No recent campaigns.</td></tr>';
+        } else {
+            data.recentCampaigns.forEach(c => {
+                const safeFormatDate = (dateString) => {
+                    if (!dateString) return 'N/A';
+                    const isoString = dateString.replace(' ', 'T'); 
+                    const d = new Date(isoString);
+                    return isNaN(d) ? dateString : d.toLocaleString();
+                };
 
-        tbody.innerHTML += `
-            <tr>
-                <td><strong>${c.name}</strong></td>
-                <td><span class="badge badge-${c.status === 'SCHEDULED' ? 'info' : (c.status === 'COMPLETED' ? 'success' : 'warning')}">${c.status}</span></td>
-                <td>${c.sent || 0}</td>
-                <td>${c.failed || 0}</td>
+                let actionsHtml = `<button class="btn btn-sm btn-outline-info view-campaign-btn" data-id="${c.id}" data-name="${c.name}">View Stats</button>`;
                 
-                <td>${c.status === 'SCHEDULED' ? safeFormatDate(c.scheduled_for) : safeFormatDate(c.created_at)}</td> 
-                
-                <td class="text-right">${actionsHtml}</td>
-            </tr>
-        `;
-        });
-        if(data.recentCampaigns.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">No recent campaigns.</td></tr>';
+                if (c.status === 'SCHEDULED') {
+                    actionsHtml += ` <button class="btn btn-sm btn-outline-warning edit-campaign-btn ml-1" 
+                                        data-id="${c.id}" data-name="${c.name}" data-time="${c.scheduled_for}">Edit</button>`;
+                }
+
+                let badgeColor = 'warning';
+                if (c.status === 'SCHEDULED') badgeColor = 'info';
+                if (c.status === 'COMPLETED' || c.status === 'SENT') badgeColor = 'success';
+                if (c.status === 'PROCESSING') badgeColor = 'primary';
+
+                campaignsTbody.innerHTML += `
+                    <tr>
+                        <td><strong>${c.name}</strong></td>
+                        <td><span class="badge badge-${badgeColor}">${c.status}</span></td>
+                        <td>${c.sent || 0}</td>
+                        <td>${c.failed || 0}</td>
+                        <td>${c.status === 'SCHEDULED' ? safeFormatDate(c.scheduled_for) : safeFormatDate(c.created_at)}</td> 
+                        <td class="text-right">${actionsHtml}</td>
+                    </tr>
+                `;
+            });
+        }
         
         document.querySelectorAll('.view-campaign-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const campaignId = e.target.getAttribute('data-id');
-                const campaignName = e.target.getAttribute('data-name');
-                
-                openStatsModal(campaignId, campaignName);
+                openStatsModal(e.target.getAttribute('data-id'), e.target.getAttribute('data-name'));
             });
         });
 
@@ -144,31 +132,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progress = document.getElementById('uploadProgress');
         
         const payload = {
-        campaignName: document.getElementById('campName').value,
-        senderId: document.getElementById('campSenderId').value,
-        messageContent: document.getElementById('campMessage').value, // The preview content
-        templateName: document.getElementById('campTemplateName').value, // The actual template name
-        targetType: campTargetType.value
+            campaignName: document.getElementById('campName').value,
+            senderId: document.getElementById('campSenderId').value,
+            messageContent: document.getElementById('campMessage').value, 
+            templateName: document.getElementById('campTemplateName').value,
+            targetType: campTargetType.value
         };
 
-        // 👉 NEW: Parse the scheduled time
         const schedTime = document.getElementById('campScheduledFor').value;
         if (schedTime) {
-
-        payload.scheduledFor = `${schedTime}:00+03:00`;
-            }
+            payload.scheduledFor = `${schedTime}:00+03:00`;
+        }
 
         submitBtn.disabled = true;
 
         try {
-            // --- SCENARIO A: SENDING TO A SAVED GROUP ---
             if (payload.targetType === 'group') {
                 payload.groupId = document.getElementById('campGroupId').value;
                 if(!payload.groupId) throw new Error("Please select a group.");
 
                 submitBtn.innerText = 'Queuing Campaign...';
                 
-                // Hit your triggerCampaign BFF endpoint
                 const res = await fetch('/messages/api/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -181,7 +165,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('Campaign queued successfully!');
                 location.reload();
             } 
-            // --- SCENARIO B: UPLOADING A CSV ---
             else {
                 const fileInput = document.getElementById('campCsvFile');
                 const file = fileInput.files[0];
@@ -190,14 +173,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 progress.classList.remove('d-none');
                 submitBtn.innerText = 'Requesting Secure Upload...';
 
-                // 1. Get Pre-signed S3 URL from Node BFF
                 const urlRes = await fetch(`/messages/api/upload-url?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`);
                 const urlData = await urlRes.json();
                 if (!urlData.success) throw new Error(urlData.error);
                 
                 const { uploadUrl, fileKey } = urlData.data;
 
-                // 2. Upload directly to S3 / MinIO
                 submitBtn.innerText = 'Uploading Target List...';
                 const uploadRes = await fetch(uploadUrl, {
                     method: 'PUT',
@@ -206,11 +187,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 if (!uploadRes.ok) throw new Error('Failed to upload file to storage bucket.');
 
-                // 3. Trigger the Go Engine Background Processor
                 submitBtn.innerText = 'Launching Campaign...';
                 payload.fileKey = fileKey;
                 
-                // Hit your triggerGoEngine BFF endpoint
                 const triggerRes = await fetch('/messages/api/trigger-bulk', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -228,14 +207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert(error.message || 'An error occurred while launching the campaign.');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerText = 'Send Campaign';
+            submitBtn.innerText = 'Send / Schedule Campaign';
             progress.classList.add('d-none');
         }
     });
 
-// 👉 NEW: Attach Edit Listeners
-    document.querySelectorAll('.edit-campaign-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+    // Attach Edit Listeners (Event Delegation for dynamically created buttons)
+    document.addEventListener('click', (e) => {
+        if(e.target.classList.contains('edit-campaign-btn')) {
             const id = e.target.getAttribute('data-id');
             const name = e.target.getAttribute('data-name');
             const scheduledTime = e.target.getAttribute('data-time');
@@ -243,18 +222,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('editCampId').value = id;
             document.getElementById('editCampName').value = name;
             
-            // Format time for the datetime-local input (YYYY-MM-DDThh:mm)
             if (scheduledTime) {
-                const date = new Date(scheduledTime);
+                const date = new Date(scheduledTime.replace(' ', 'T'));
                 date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
                 document.getElementById('editCampScheduledFor').value = date.toISOString().slice(0,16);
             }
-
             $('#editCampaignModal').modal('show');
-        });
+        }
     });
 
-    // 👉 NEW: Handle Edit Submission
     const editForm = document.getElementById('form-edit-campaign');
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
@@ -266,7 +242,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const id = document.getElementById('editCampId').value;
             const payload = {
                 name: document.getElementById('editCampName').value,
-                // Convert back to standard ISO for the Go backend
                 scheduled_for: new Date(document.getElementById('editCampScheduledFor').value).toISOString()
             };
 
@@ -293,30 +268,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-
     // ==========================================
-    // STATS MODAL LOGIC
+    // 3. STATS MODAL LOGIC
     // ==========================================
-    let currentPollingInterval = null;
-
     async function openStatsModal(id, name) {
-        // 1. Reset UI
         document.getElementById('modalCampName').innerText = name;
         document.getElementById('modalStatTotal').innerText = '...';
         document.getElementById('modalStatPending').innerText = '...';
         document.getElementById('modalStatSent').innerText = '...';
         document.getElementById('modalStatFailed').innerText = '...';
 
-        // 2. Open Modal (Bootstrap 5 Vanilla JS)
-        const statsModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('campaignStatsModal'));
-        statsModal.show();
-
-        // 3. Fetch Data immediately
+        $('#campaignStatsModal').modal('show');
         await fetchAndPopulateStats(id);
 
-        // 4. Attach manual refresh button logic
         const refreshBtn = document.getElementById('btn-refresh-stats');
-        // Remove old listeners to prevent duplicates if they click multiple campaigns
         const newRefreshBtn = refreshBtn.cloneNode(true); 
         refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
         
@@ -331,20 +296,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function fetchAndPopulateStats(id) {
         try {
-            // Hit your Node BFF which proxies to Go's blazing fast COUNT() query
             const res = await fetch(`/messages/api/campaigns/${id}/stats`);
             const result = await res.json();
             
             if (res.ok && result.data) {
                 const stats = result.data;
-                
-                // Animate values for a nice touch
                 document.getElementById('modalStatTotal').innerText = (stats.TOTAL || 0).toLocaleString();
-                
-                // Combine PENDING and PROCESSING for a simpler UI view
                 const pendingCount = (stats.PENDING || 0) + (stats.PROCESSING || 0);
                 document.getElementById('modalStatPending').innerText = pendingCount.toLocaleString();
-                
                 document.getElementById('modalStatSent').innerText = (stats.SENT || stats.DELIVERED || 0).toLocaleString();
                 document.getElementById('modalStatFailed').innerText = (stats.FAILED || 0).toLocaleString();
             }
@@ -353,8 +312,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // ==========================================
+    // 4. UNIFIED OUTBOX LEDGER LOGIC
+    // ==========================================
+    async function loadUnifiedOutbox(page = 1) {
+        const tbody = document.getElementById('unifiedOutboxTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">Loading...</td></tr>';
 
-    // Basic Tab Logic (Vanilla JS fallback)
+        try {
+            const res = await fetch(`/messages/api/outbox?page=${page}`);
+            const { data } = await res.json();
+            
+            tbody.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No messages found in the outbox.</td></tr>';
+                return;
+            }
+
+            data.forEach(msg => {
+                const isCampaign = msg.CampaignID !== null;
+                const typeBadge = isCampaign 
+                    ? `<span class="badge badge-primary">Campaign</span> <small class="text-muted d-block">${msg.Campaign ? msg.Campaign.Name : ''}</small>` 
+                    : `<span class="badge badge-secondary">Transactional</span>`;
+
+                let statusClass = 'warning';
+                if (msg.Status === 'DELIVERED' || msg.Status === 'SENT') statusClass = 'success';
+                if (msg.Status === 'FAILED') statusClass = 'danger';
+
+                const isoString = msg.CreatedAt.replace(' ', 'T'); 
+                const dateStr = new Date(isoString).toLocaleString();
+                const msgPreview = msg.Message.length > 50 ? msg.Message.substring(0, 50) + '...' : msg.Message;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-muted small">${dateStr}</td>
+                        <td>${typeBadge}</td>
+                        <td><strong>${msg.MSISDN}</strong></td>
+                        <td>${msg.SenderID}</td>
+                        <td class="text-truncate text-muted small" style="max-width: 250px;" title="${msg.Message.replace(/"/g, '&quot;')}">${msgPreview}</td>
+                        <td>KES ${msg.Cost}</td>
+                        <td><span class="badge badge-${statusClass}">${msg.Status}</span></td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-danger">Failed to load outbox data.</td></tr>';
+            console.error("Failed to load unified outbox", error);
+        }
+    }
+
+    // Trigger Outbox load when the tab is clicked
+    document.getElementById('outbox-tab').addEventListener('click', () => {
+        loadUnifiedOutbox(1);
+    });
+
+    document.getElementById('btn-refresh-outbox')?.addEventListener('click', () => {
+        loadUnifiedOutbox(1);
+    });
+
+    // Basic Tab Logic Fallback
     document.querySelectorAll('#campaignTabs .nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();

@@ -25,7 +25,10 @@
         <a class="nav-link active" id="compose-tab" data-toggle="tab" href="#compose" role="tab">Launch Campaign</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" id="outbox-tab" data-toggle="tab" href="#outbox" role="tab">Outbox & History</a>
+        <a class="nav-link" id="campaigns-tab" data-toggle="tab" href="#campaigns-view" role="tab">Campaigns</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="outbox-tab" data-toggle="tab" href="#outbox" role="tab">Unified Outbox</a>
     </li>
 </ul>
 
@@ -81,7 +84,6 @@
                         <div class="col-md-7 pl-4">
                             <h5 class="mb-4">Message Configuration</h5>
 
-                            <!-- NEW: Dropdown Selector -->
                             <div class="form-group mb-3">
                                 <label class="font-weight-bold">Select Template <span class="text-danger">*</span></label>
                                 <select id="campTemplateName" class="form-control" required>
@@ -112,24 +114,60 @@
         </div>
     </div>
 
+    <div class="tab-pane fade" id="campaigns-view" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-dark">Recent Campaigns</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Campaign Name</th>
+                                <th>Status</th>
+                                <th>Sent</th>
+                                <th>Failed</th>
+                                <th>Date/Scheduled Time</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="campaignsTableBody">
+                            <tr><td colspan="6" class="text-center py-4">Loading campaigns...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="tab-pane fade" id="outbox" role="tabpanel">
         <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-dark">Unified Message Ledger</h6>
+                <button id="btn-refresh-outbox" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
             <div class="card-body p-0">
-                <table class="table table-hover mb-0">
-                    <thead class="bg-light">
-                        <tr>
-                            <th>Campaign Name</th>
-                            <th>Status</th>
-                            <th>Sent</th>
-                            <th>Failed</th>
-                            <th>Date/Scheduled Time</th>
-                            <th class="text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="outboxTableBody">
-                        <tr><td colspan="6" class="text-center py-4">Loading history...</td></tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Recipient</th>
+                                <th>Sender ID</th>
+                                <th style="max-width: 250px;">Message Preview</th>
+                                <th>Cost</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unifiedOutboxTableBody">
+                            <tr><td colspan="7" class="text-center py-4">Loading ledger...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -146,7 +184,6 @@
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body p-4">
-                
                 <div class="row text-center">
                     <div class="col-md-3 mb-3">
                         <div class="card shadow-sm border-0 border-left-secondary py-2">
@@ -185,7 +222,6 @@
                 <div class="mt-4 text-center">
                     <button class="btn btn-outline-secondary" id="btn-refresh-stats">Refresh Live Stats</button>
                 </div>
-
             </div>
         </div>
     </div>

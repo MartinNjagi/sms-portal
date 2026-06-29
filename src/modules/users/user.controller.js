@@ -60,9 +60,45 @@ const createUser = async (req, res, next) => {
     }
 };
 
+const getUser = async (req, res, next) => {
+    try {
+        // Assuming your wrapper passes req.params.id properly
+        const user = await goEngineWrapper.getUser(req, req.params.id); 
+        res.status(200).json(user);
+    } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ error: error.message || "Failed to fetch user" });
+    }
+};
+
+const updateUser = async (req, res, next) => {
+    try {
+        // req.body contains full_name, status
+        await goEngineWrapper.updateUser(req, req.params.id);
+        res.status(200).json({ message: "User updated successfully" });
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ error: error.message || "Failed to update user" });
+    }
+};
+
+const deleteUser = async (req, res, next) => {
+    try {
+        await goEngineWrapper.deleteUser(req, req.params.id);
+        res.status(200).json({ message: "User deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        res.status(500).json({ error: error.message || "Failed to delete user" });
+    }
+};
+
+// Update your module.exports to include the new methods
 module.exports = {
     viewMyTeam,
     viewClientUsers,
     getRoles,
-    createUser
+    createUser,
+    getUser,     // NEW
+    updateUser,  // NEW
+    deleteUser   // NEW
 };

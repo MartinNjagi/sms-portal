@@ -14,6 +14,7 @@ router.post('/templates', messageController.createTemplateSync); // Handle Modal
 
 // --- BFF API (Called by bulk-upload.js) ---
 router.get('/api/dashboard-data', messageController.getMessageDashboardData);
+router.get('/api/outbox', messageController.getUnifiedOutbox); // NEW: Unified Outbox
 router.get('/api/upload-url', messageController.getUploadUrl);
 router.post('/api/trigger', messageController.triggerCampaign);       // Group Flow
 router.post('/api/trigger-bulk', messageController.triggerBulkCampaign); // CSV Flow

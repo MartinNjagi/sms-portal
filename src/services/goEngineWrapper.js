@@ -191,23 +191,6 @@ const verifyOtp = async (msisdn, code, req) => {
     }
 };
 
-const createUser = async (req) => {
-    try {
-        const payload = req.body;
-        const token = getJWT(req);
-        if (!token) throw new Error('Missing JWT token on request context');
-    
-        const response = await clients.identity.post(
-            '/api/v1/users',
-            payload,
-            withContext(req, { Authorization: `Bearer ${token}` }, payload),
-        );
-        return response.data;
-    } catch (error) {
-        handleEngineError(error, 'createUser');
-    }
-};
-
 const getAllClients = async (req) => {
     try {
         const token = getJWT(req); 
@@ -294,6 +277,8 @@ const createRole = async (req) => {
     }
 };
 
+// --- USER MANAGEMENT WRAPPERS ---
+
 const getUsers = async (req, clientId = null) => {
     try {
         const url = clientId ? `/api/v1/users?client_id=${clientId}` : '/api/v1/users';
@@ -304,6 +289,69 @@ const getUsers = async (req, clientId = null) => {
         return response.data;
     } catch (error) {
         handleEngineError(error, 'getUsers');
+    }
+};
+
+const getUser = async (req, userId) => {
+    try {
+        const response = await clients.identity.get(
+            `/api/v1/users/${userId}`,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'getUser');
+    }
+};
+
+const createUser = async (req) => {
+    try {
+        const response = await clients.identity.post(
+            `/api/v1/users`,
+            req.body,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'createUser');
+    }
+};
+
+const updateUser = async (req, userId) => {
+    try {
+        const response = await clients.identity.put(
+            `/api/v1/users/${userId}`,
+            req.body,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'updateUser');
+    }
+};
+
+const deleteUser = async (req, userId) => {
+    try {
+        const response = await clients.identity.delete(
+            `/api/v1/users/${userId}`,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'deleteUser');
+    }
+};
+
+const assignRole = async (req, userId) => {
+    try {
+        const response = await clients.identity.put(
+            `/api/v1/users/${userId}/role`,
+            req.body,
+            withContext(req, { Authorization: `Bearer ${req.token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'assignRole');
     }
 };
 
@@ -822,6 +870,17 @@ const approveTemplate = async (id, payload, req) => {
 };
 
 
+const getUnifiedOutbox = async (req, page = 1, limit = 50) => {
+    try {
+        const response = await clients.sms.get(
+            `/api/v1/admin/outbox?page=${page}&page_size=${limit}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { 
+        handleEngineError(error, 'getUnifiedOutbox'); 
+    }
+};
 
 // ============================================================================
 // Notification Stubs
@@ -871,7 +930,9 @@ module.exports = {
     // Identity
     requestOtp,    verifyOtp,
     getAllClients,
-    getUsers, createUser,
+    getUsers,getUser,
+    createUser,updateUser,deleteUser,
+    assignRole,
     getRoles, createRole, deleteRole,
     getRolePermissions, assignRolePermissions,
     listAvailablePermissions, 
@@ -894,6 +955,7 @@ module.exports = {
     getContactGroups,createContactGroup,updateContactGroup,deleteContactGroup,
     getContactsByGroup,listContacts,addContacts,updateContact,deleteContact,
     updateGroupContacts,
+    getUnifiedOutbox,
     // Notification
     markAllNotificationsRead,markNotificationRead,
     getNotifications,

@@ -22,21 +22,33 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Role</th>
                     <th>Status</th>
-                </tr>
+                    <th>Actions</th> </tr>
             </thead>
             <tbody>
                 {% for teamMember in users %}
                 <tr>
                     <td>{{ teamMember.full_name }}</td>
                     <td>{{ teamMember.email }}</td>
-                    <td><span class="badge bg-dark">{{ teamMember.role }}</span></td>
-                    <td><span class="text-success">Active</span></td>
+                    <td>
+                        {% if teamMember.status == 'ACTIVE' %}
+                            <span class="text-success">Active</span>
+                        {% else %}
+                            <span class="text-danger text-capitalize">{{ teamMember.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#actionsUserModal" 
+                                data-userid="{{ teamMember.id }}">
+                            Manage
+                        </button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted">No users found.</td>
+                    <td colspan="5" class="text-center text-muted">No users found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -85,6 +97,52 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveUserBtn">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="actionsUserModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Manage User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" id="actionsLoading">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="mt-2">Loading user details...</p>
+      </div>
+      <form id="updateUserForm" class="d-none">
+        <div class="modal-body">
+          <input type="hidden" id="update_user_id">
+          
+          <div class="form-group mb-3">
+            <label>Full Name</label>
+            <input type="text" class="form-control" id="update_name" required>
+          </div>
+          
+          <div class="form-group mb-3">
+            <label>Email Address</label>
+            <input type="email" class="form-control" id="update_email" readonly disabled>
+            <small class="text-muted">Email cannot be changed.</small>
+          </div>
+
+          <div class="form-group mb-3">
+            <label>Account Status</label>
+            <select class="form-control" id="update_status" required>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button type="button" class="btn btn-outline-danger" id="deleteUserBtn">Delete User</button>
+          <div>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="saveUpdateBtn">Save Changes</button>
+          </div>
         </div>
       </form>
     </div>
