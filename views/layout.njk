@@ -6,42 +6,27 @@
     <title>{% if title %}{{ title }} - {% endif %}SMS Platform</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/layout.css"> <!-- Unified Theme Linked -->
     
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
-
-    <style>
-        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        /* Layout Structure */
-        .wrapper { display: flex; width: 100%; align-items: stretch; min-height: 100vh; }
-        
-        /* Sidebar Styling */
-        #sidebar { min-width: 250px; max-width: 250px; background: #343a40; color: #fff; transition: all 0.3s; }
-        #sidebar .sidebar-header { padding: 20px; background: #2b3035; border-bottom: 1px solid #475058; }
-        #sidebar ul.components { padding: 20px 0; }
-        #sidebar ul li a { padding: 12px 20px; font-size: 1.1em; display: block; color: #d1d8e0; text-decoration: none; }
-        #sidebar ul li a:hover, #sidebar ul li.active a { color: #fff; background: #0d6efd; }
-        #sidebar ul li.nav-category { padding: 15px 20px 5px; font-size: 0.85em; text-transform: uppercase; color: #6c757d; font-weight: bold; }
-
-        /* Main Content Styling */
-        #content { width: 100%; padding: 20px; min-height: 100vh; transition: all 0.3s; }
-        .top-nav { background: #fff; padding: 15px 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; }
-        
-        /* Utilities */
-        .card { border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: none; margin-bottom: 20px; }
-    </style>
 </head>
 <body>
+    <!-- Theme Toggle Floating Button -->
+    <button id="themeToggle" class="btn btn-outline-secondary position-fixed top-0 end-0 m-3" style="z-index: 1050;">
+        <i class="bi bi-moon-stars"></i>
+    </button>
 
+    <div class="wrapper d-flex justify-content-center align-items-center">
+        {% block content %}{% endblock %}
+    </div>
 
-    {% block content %}{% endblock %}
-
+    <!-- Core Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/theme-toggle.js"></script> <!-- New Script -->
 
     {% block scripts %}{% endblock %}
-
 </body>
 </html>

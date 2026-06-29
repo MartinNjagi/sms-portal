@@ -21,10 +21,16 @@ messageController.renderBulkDashboard = async (req, res, next) => {
 
 messageController.renderSingleDashboard = async (req, res, next) => {
     try {
+
+         const balRes=goEngineWrapper.getClientBalance(req);
+        const balance = balRes.data.balance
+
+
         res.render('message/index.njk', {
             title: 'Messaging Dashboard',
             alias: 'messages', 
-            user: req.user
+            user: req.user,
+            balance: balance
         });
     } catch (error) {
         next(error);
@@ -83,7 +89,7 @@ messageController.getMessageDashboardData = async (req, res, next) => {
     try {
         // Concurrently fetch all data needed to render the Dashboard and fill the dropdowns!
         const [walletRes, campaignsRes, sendersRes, groupsRes,templatesRes] = await Promise.all([
-            goEngineWrapper.getWalletData(req).catch(() => ({ data: { balance: 0 } })),
+            goEngineWrapper.getClientBalance(req).catch(() => ({ data: { balance: 0 } })),
             goEngineWrapper.listCampaigns(req, 1, 5).catch(() => ({ data: [] })),
             goEngineWrapper.getSenderIds(req).catch(() => ({ data: [] })),
             goEngineWrapper.getContactGroups(req).catch(() => ({ data: [] })),

@@ -83,11 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tbody.innerHTML = '';
         data.recentCampaigns.forEach(c => {
             
-        // 👉 DEBUG: See exactly what Go is sending you
-        
-        console.log(`Campaign [${c.name}] - Raw Date: '${c.created_at}' | Raw Scheduled: '${c.scheduled_for}'`);
-
-        // 👉 FIX: Safely parse SQL-style dates by replacing the space with a 'T'
+            // 👉 FIX: Safely parse SQL-style dates by replacing the space with a 'T'
         const safeFormatDate = (dateString) => {
             if (!dateString) return 'N/A';
             

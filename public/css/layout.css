@@ -1,17 +1,139 @@
-/*public/css/layout.css
-*/
+/* public/css/layout.css */
 :root {
-    --sidebar-bg: #1e293b; /* Modern slate dark */
-    --sidebar-hover: #334155;
-    --sidebar-active: #0d6efd;
-    --sidebar-text: #cbd5e1;
+    /* Global Accent Colors - Solid, no gradients */
+    --accent-primary: #0d6efd;
+    --accent-secondary: #10b981;
+
+    /* Light Theme Variables */
     --body-bg: #f8fafc;
+    --surface-bg: #ffffff;
+    --text-main: #212529;
+    --text-muted: #6c757d;
+    --border-color: rgba(0,0,0,0.05);
+
+    /* Sidebar - Light/Default */
+    --sidebar-bg: #1e293b; 
+    --sidebar-hover: #334155;
+    --sidebar-active: var(--accent-primary);
+    --sidebar-text: #cbd5e1;
 }
 
-body { 
-    background-color: var(--body-bg); 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+/* Dark Mode Overrides */
+[data-theme="dark"] {
+    --body-bg: #0f172a;
+    --surface-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border-color: rgba(255,255,255,0.05);
+
+    /* Sidebar - Dark */
+    --sidebar-bg: #0b1120;
+    --sidebar-hover: #1e293b;
+    --sidebar-text: #94a3b8;
+    
+    /* Bootstrap 5 Variable Overrides */
+    --bs-body-bg: var(--body-bg);
+    --bs-body-color: var(--text-main);
+    
+    /* Map 'bg-white' and 'card' backgrounds to our dark surface */
+    --bs-white-rgb: 30, 41, 59;   /* Corresponds to #1e293b */
+    --bs-light-rgb: 15, 23, 42;   /* Maps 'bg-light' to #0f172a */
+    --bs-dark-rgb: 248, 250, 252; /* Maps 'text-dark' to #f8fafc */
+    
+    --bs-border-color: var(--border-color);
+    
+    /* Table Overrides */
+    --bs-table-bg: var(--surface-bg);
+    --bs-table-color: var(--text-main);
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.03);
+    --bs-table-hover-color: var(--text-main);
+}
+
+/* ==========================================
+   ROBUST UTILITY CLASS INTERCEPTOR
+   Forces hardcoded text and bg classes to flip
+   ========================================== */
+[data-theme="dark"] .text-dark,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-secondary,
+[data-theme="dark"] h1, 
+[data-theme="dark"] h2, 
+[data-theme="dark"] h3, 
+[data-theme="dark"] h4, 
+[data-theme="dark"] h5, 
+[data-theme="dark"] h6 {
+    color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .text-muted,
+[data-theme="dark"] .text-white-50 {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-light {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-main) !important;
+}
+
+/* Enforce the solid Accent Colors globally */
+:root {
+    --bs-primary: var(--accent-primary);
+    --bs-success: var(--accent-secondary);
+}
+
+.btn-primary { background-color: var(--accent-primary) !important; border-color: var(--accent-primary) !important; }
+.btn-success { background-color: var(--accent-secondary) !important; border-color: var(--accent-secondary) !important; }
+
+/* Force Core UI Elements to respect the surface colors */
+.card, .modal-content, .list-group-item {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+.modal-header, .modal-footer {
+    border-color: var(--border-color) !important;
+}
+
+/* Dark Mode Form Inputs */
+[data-theme="dark"] .form-control, 
+[data-theme="dark"] .form-select {
+    background-color: #0b1120;
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .form-control:focus, 
+[data-theme="dark"] .form-select:focus {
+    background-color: #0b1120;
+    color: var(--text-main);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Re-implement Custom Left Borders (used heavily in your dashboard/settings) */
+.border-left-primary { border-left: 4px solid var(--accent-primary) !important; }
+.border-left-success { border-left: 4px solid var(--accent-secondary) !important; }
+.border-left-info { border-left: 4px solid #0dcaf0 !important; }
+.border-left-warning { border-left: 4px solid #ffc107 !important; }
+.border-left-danger { border-left: 4px solid #dc3545 !important; }
+.border-left-secondary { border-left: 4px solid #6c757d !important; }
+
+body {
+    background-color: var(--body-bg);
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure active elements use the new accent */
+#sidebar ul li.active a {
+    color: #fff;
+    background: var(--sidebar-active);
+    border-left: 3px solid var(--accent-secondary);
+    font-weight: 500;
 }
 
 /* Layout Structure */
@@ -58,9 +180,9 @@ body {
 }
 
 #sidebar ul li.active a { 
-    color: #fff; 
-    background: var(--sidebar-active); 
-    border-left: 3px solid #60a5fa;
+    color: #fff;
+    background: var(--sidebar-active);
+    border-left: 3px solid var(--accent-secondary);
     font-weight: 500;
 }
 
@@ -82,7 +204,8 @@ body {
 }
 
 .top-nav { 
-    background: #fff; 
+    background: var(--surface-bg);
+    border-bottom: 1px solid var(--border-color); 
     padding: 15px 25px; 
     border-radius: 10px; 
     margin-bottom: 30px; 
@@ -92,10 +215,9 @@ body {
     align-items: center; 
 }
 
-.card { 
-    border-radius: 10px; 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.02); 
-    border: 1px solid rgba(0,0,0,0.05); 
+.card {
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
     margin-bottom: 20px; 
 }
 
@@ -113,7 +235,6 @@ body {
     .top-nav { padding: 12px 15px; margin-bottom: 20px; }
 }
 
-
 .badge-pending {
     background-color: #fff3cd;
     color: #856404;
@@ -130,4 +251,63 @@ body {
     background-color: #334155;
     color: #8ae0b8;
     border: 1px solid #a3cfbb;
+}
+
+
+/* ==========================================
+   BOOTSTRAP COMPONENT INTERCEPTOR
+   Fixes Placeholders, Tabs, and specialized Buttons
+   ========================================== */
+
+/* 1. Form Input Placeholders */
+[data-theme="dark"] .form-control::placeholder,
+[data-theme="dark"] .form-select::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 2. Nav Tabs (e.g., 'Launch Campaign' & 'Outbox' Tabs) */
+[data-theme="dark"] .nav-tabs {
+    border-bottom-color: var(--border-color) !important;
+}
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--text-muted) !important;
+}
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    border-color: var(--border-color) var(--border-color) transparent !important;
+    color: var(--text-main) !important;
+}
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: var(--surface-bg) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) var(--border-color) var(--surface-bg) !important;
+}
+
+/* 3. Light Buttons (e.g., 'View Permissions' in Roles) */
+[data-theme="dark"] .btn-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .btn-light:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+}
+
+/* 4. Outline Secondary Buttons (Often used for 'Cancel' or 'Back') */
+[data-theme="dark"] .btn-outline-secondary {
+    color: var(--text-muted) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-main) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 5. Thead-light (Used in Dashboard Tables) */
+[data-theme="dark"] .thead-light th {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: var(--text-main) !important;
+    border-bottom-color: var(--border-color) !important;
 }

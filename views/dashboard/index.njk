@@ -5,7 +5,7 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div class="d-flex gap-2">
-            <a href="/accounts" class="btn btn-outline-secondary">Top Up Wallet</a>
+            <a href="/accounts/billing" class="btn btn-outline-secondary">Top Up Wallet</a>
             <a href="/messages" class="btn btn-primary">Launch Campaign</a>
         </div>
     </div>
@@ -17,7 +17,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Available Balance</div>
-                            <div class="h3 mb-0 font-weight-bold text-gray-800">{{ stats.currency }} {{ stats.balance | intcomma }}</div>
+                            <div class="h3 mb-0 font-weight-bold text-gray-800">{{ stats.currency }} {{ stats.balance }}</div>
                         </div>
                     </div>
                 </div>

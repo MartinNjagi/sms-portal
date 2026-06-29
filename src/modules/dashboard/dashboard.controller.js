@@ -9,12 +9,15 @@ dashboardController.renderDashboard = async (req, res, next) => {
         // We use .catch() on individual promises so if one service is temporarily down, 
         // the whole dashboard doesn't crash (graceful degradation).
         const [walletRes, campaignsRes] = await Promise.all([
-            goEngineWrapper.getWalletData(req).catch(() => ({ data: { balance: 0, currency: 'KES' } })),
+            goEngineWrapper.getClientBalance(req).catch(() => ({ data: { balance: 0, currency: 'KES' } })),
             goEngineWrapper.listCampaigns(req, 1, 5).catch(() => ({ data: [] }))
         ]);
 
         const campaigns = campaignsRes.data || [];
         
+        console.log("Wallet Response", walletRes.data);
+        
+
         // Construct the summary object expected by the Nunjucks view
         const summary = {
             balance: walletRes.data?.balance || 0,
