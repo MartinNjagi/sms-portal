@@ -6,15 +6,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load saved theme
     const savedTheme = localStorage.getItem('app-theme') || 'light';
-    htmlElement.setAttribute('data-theme', savedTheme);
+    
+    // UPDATED: Use data-bs-theme for Bootstrap 5.3+
+    htmlElement.setAttribute('data-bs-theme', savedTheme);
     updateIcon(savedTheme);
 
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', () => {
-            const currentTheme = htmlElement.getAttribute('data-theme');
+            // UPDATED: Check data-bs-theme
+            const currentTheme = htmlElement.getAttribute('data-bs-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
-            htmlElement.setAttribute('data-theme', newTheme);
+            // UPDATED: Set data-bs-theme
+            htmlElement.setAttribute('data-bs-theme', newTheme);
             localStorage.setItem('app-theme', newTheme);
             updateIcon(newTheme);
         });

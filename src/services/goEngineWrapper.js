@@ -167,7 +167,7 @@ const requestOtp = async (msisdn, password, req) => {
     const payload = { msisdn, password };
     try {
         const response = await clients.identity.post(
-            '/api/v1/login',
+            '/api/v1/login/send',
             payload,
             withContext(req, {}, payload),
         );
@@ -181,7 +181,7 @@ const verifyOtp = async (msisdn, code, req) => {
     const payload = { msisdn, code };
     try {
         const response = await clients.identity.post(
-            '/api/v1/verify',
+            '/api/v1/login/verify',
             payload,
             withContext(req, {}, payload),
         );
@@ -190,6 +190,59 @@ const verifyOtp = async (msisdn, code, req) => {
         handleEngineError(error, 'verifyOtp');
     }
 };
+
+// ----------------------------------------------------------------------------
+// PASSWORD RESET FLOW
+// ----------------------------------------------------------------------------
+
+const forgotPasswordSend = async (msisdn, req) => {
+    const payload = { msisdn };
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/password/forgot/send', // Update with your exact Go route
+            payload,
+            withContext(req, {}, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'forgotPasswordSend');
+    }
+};
+
+const forgotPasswordVerify = async (msisdn, code, req) => {
+    const payload = { msisdn, code };
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/password/forgot/verify', 
+            payload,
+            withContext(req, {}, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'forgotPasswordVerify');
+    }
+};
+
+const resetPassword = async (msisdn, resetToken, newPassword, req) => {
+    const payload = { 
+        msisdn, 
+        reset_token: resetToken, 
+        new_password: newPassword 
+    };
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/password/reset',
+            payload,
+            withContext(req, {}, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'resetPassword');
+    }
+};
+
+
+
 
 const getAllClients = async (req) => {
     try {
@@ -429,6 +482,67 @@ const deleteRole = async (req, roleId) => {
     }
 };
 
+// ─── PASSKEYS (WEBAUTHN) ───────────────────────────────────────────────────
+
+const passkeyLoginBegin = async (msisdn, req) => {
+    // msisdn is optional (can be null/empty for discoverable credentials)
+    const payload = { msisdn };
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/passkey/login/begin',
+            payload,
+            withContext(req, {}, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'passkeyLoginBegin');
+    }
+};
+
+const passkeyLoginFinish = async (payload, req) => {
+    try {
+        const response = await clients.identity.post(
+            '/api/v1/passkey/login/finish',
+            payload,
+            withContext(req, {}, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'passkeyLoginFinish');
+    }
+};
+
+const passkeyRegisterBegin = async (req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.identity.post(
+            '/api/v1/passkey/register/begin',
+            {}, // No body needed; Go backend extracts identity from the JWT
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'passkeyRegisterBegin');
+    }
+};
+
+const passkeyRegisterFinish = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.identity.post(
+            '/api/v1/passkey/register/finish',
+            payload,
+            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+        );
+        return response.data;
+    } catch (error) {
+        handleEngineError(error, 'passkeyRegisterFinish');
+    }
+};
 
 // ----------------------------------------------------------------------------
 // WALLET SERVICE
@@ -929,6 +1043,7 @@ const markAllNotificationsRead = async (req) => {
 module.exports = {
     // Identity
     requestOtp,    verifyOtp,
+    forgotPasswordSend, forgotPasswordVerify, resetPassword,
     getAllClients,
     getUsers,getUser,
     createUser,updateUser,deleteUser,
@@ -937,6 +1052,10 @@ module.exports = {
     getRolePermissions, assignRolePermissions,
     listAvailablePermissions, 
     getAPIKeys,
+    passkeyLoginBegin,
+    passkeyLoginFinish,
+    passkeyRegisterBegin,
+    passkeyRegisterFinish,
 
     // wallet
     getClientBalance,

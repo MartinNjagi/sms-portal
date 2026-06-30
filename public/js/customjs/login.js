@@ -1,5 +1,27 @@
 // public/js/customjs/login.js
 
+// --- WEBAUTHN BASE64 HELPERS ---
+function bufferDecode(value) {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const binary = window.atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+function bufferEncode(value) {
+    const bytes = new Uint8Array(value);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+
 let loginVM = new Vue({
     el: '#login',
     data: {
@@ -19,7 +41,8 @@ let loginVM = new Vue({
         country_code: 'ke',
         show_signup: 0,
         title: 'Login',
-        showPassword: false
+        showPassword: false,
+        pendingRedirectUrl: '', // Stores the redirect URL while we prompt for Passkey
     },
     methods: {
         toggleShowPassword() {
@@ -100,7 +123,12 @@ let loginVM = new Vue({
                 });
         },
 
-        // --- AUTH: STEP 2 (Verify OTP & Redirect) ---
+        showPasskeyPrompt: function () {
+            this.title = "Create a Passkey";
+            this.show_signup = 6;
+        },
+
+        // --- AUTH: STEP 2 (Verify OTP & Prompt Passkey) ---
         verifyLoginOTP: function (ele) {
             if (ele) ele.preventDefault();
             if (this.loading) return;
@@ -117,19 +145,129 @@ let loginVM = new Vue({
 
             axios.post('/api/auth/login/verify-otp', data)
                 .then(function (response) {
-                    // You can save the user & permissions to localStorage or Vuex here
-                    // so the dashboard knows who is logged in!
+                    vm.loading = "";
                     localStorage.setItem('user', JSON.stringify(response.data.user));
                     localStorage.setItem('permissions', JSON.stringify(response.data.permissions));
                     
-                    // The browser automatically brings the HttpOnly cookie along
-                    window.location.replace(response.data.redirectUrl);
+                    // Instead of redirecting immediately, store URL and prompt for Passkey
+                    vm.pendingRedirectUrl = response.data.redirectUrl;
+                    vm.showPasskeyPrompt();
                 }).catch(function (err) {
                     vm.showError(err);
                 });
         },
 
-        // --- OTHER ACCOUNT FLOWS ---
+        // --- PASSKEY: REGISTRATION ---
+        skipPasskey: function () {
+            window.location.replace(this.pendingRedirectUrl || '/dashboard');
+        },
+
+        registerPasskey: async function () {
+            let vm = this;
+            vm.loading = "loading";
+
+            try {
+                // 1. Get challenge from server
+                const beginRes = await axios.post('/api/auth/passkey/register/begin');
+                const options = beginRes.data.data.options;
+                const sessionKey = beginRes.data.data.session_key;
+
+                // Decode buffers for browser
+                options.publicKey.challenge = bufferDecode(options.publicKey.challenge);
+                options.publicKey.user.id = bufferDecode(options.publicKey.user.id);
+                if (options.publicKey.excludeCredentials) {
+                    options.publicKey.excludeCredentials.forEach(cred => {
+                        cred.id = bufferDecode(cred.id);
+                    });
+                }
+
+                // 2. Prompt browser biometrics/hardware key
+                const credential = await navigator.credentials.create({ publicKey: options.publicKey });
+
+                // Encode buffers for server
+                const credentialPayload = {
+                    id: credential.id,
+                    rawId: bufferEncode(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        attestationObject: bufferEncode(credential.response.attestationObject),
+                        clientDataJSON: bufferEncode(credential.response.clientDataJSON)
+                    }
+                };
+
+                // 3. Send to server to finish registration
+                await axios.post('/api/auth/passkey/register/finish', {
+                    session_key: sessionKey,
+                    credential: credentialPayload
+                });
+
+                swal("Success", "Passkey registered! You can use it next time you log in.", "success")
+                    .then(() => {
+                        window.location.replace(vm.pendingRedirectUrl || '/dashboard');
+                    });
+
+            } catch (err) {
+                vm.loading = "";
+                // If user cancels the biometric prompt, don't show a massive error, just skip
+                if (err.name === 'NotAllowedError') {
+                    vm.skipPasskey();
+                    return;
+                }
+                vm.showError(err);
+            }
+        },
+
+        // --- PASSKEY: LOGIN ---
+        passkeyLogin: async function () {
+            let vm = this;
+            vm.loading = "loading";
+
+            try {
+                // 1. Get challenge (discoverable login, no msisdn needed)
+                const beginRes = await axios.post('/api/auth/passkey/login/begin', { msisdn: this.msisdn });
+                const options = beginRes.data.data.options;
+                const sessionKey = beginRes.data.data.session_key;
+
+                options.publicKey.challenge = bufferDecode(options.publicKey.challenge);
+                if (options.publicKey.allowCredentials) {
+                    options.publicKey.allowCredentials.forEach(cred => {
+                        cred.id = bufferDecode(cred.id);
+                    });
+                }
+
+                // 2. Prompt browser biometrics
+                const assertion = await navigator.credentials.get({ publicKey: options.publicKey });
+
+                const assertionPayload = {
+                    id: assertion.id,
+                    rawId: bufferEncode(assertion.rawId),
+                    type: assertion.type,
+                    response: {
+                        authenticatorData: bufferEncode(assertion.response.authenticatorData),
+                        clientDataJSON: bufferEncode(assertion.response.clientDataJSON),
+                        signature: bufferEncode(assertion.response.signature),
+                        userHandle: assertion.response.userHandle ? bufferEncode(assertion.response.userHandle) : null
+                    }
+                };
+
+                // 3. Finish login and get JWT cookie
+                const finishRes = await axios.post('/api/auth/passkey/login/finish', {
+                    session_key: sessionKey,
+                    credential: assertionPayload
+                });
+
+                localStorage.setItem('user', JSON.stringify(finishRes.data.user));
+                localStorage.setItem('permissions', JSON.stringify(finishRes.data.permissions));
+                window.location.replace(finishRes.data.redirectUrl);
+
+            } catch (err) {
+                vm.loading = "";
+                if (err.name === 'NotAllowedError') return; // User closed the prompt
+                vm.showError(err);
+            }
+        },
+
+         // --- OTHER ACCOUNT FLOWS ---
         resendCode: function () {
             if (this.loading) return;
             if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
@@ -150,26 +288,73 @@ let loginVM = new Vue({
                     vm.showError(err);
                 });
         },
+
+        // --- AUTH: FORGOT PASSWORD (STEP 1: Send SMS) ---
         reset: function () {
             let vm = this;
             if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
             
-            let toPost = {
-                service: 'identity',
-                route: 'auth/user/password/forgot',
-                msisdn: vm.msisdn
-            };
+            let data = { msisdn: vm.msisdn };
             vm.loading = 'loading';
 
-            axios.post('/request/api', toPost)
+            // Hits the new BFF route instead of the old proxy
+            axios.post('/api/auth/password/forgot-send', data)
                 .then(function (response) {
                     vm.loading = '';
-                    swal("Password Reset!", response.data.message || "Instructions sent.", "success");
-                    vm.showOTP();
+                    swal("OTP Sent", response.data.message || "Please check your phone for the verification code.", "success");
+                    vm.showOTP(); // Shows signup state 3
                 })
                 .catch(function (err) {
                     vm.showError(err);
                 });
-        }
+        },
+
+        // --- AUTH: RESET PASSWORD (STEP 2 & 3: Verify & Reset) ---
+        otp: async function (ele) {
+            if (ele) ele.preventDefault();
+            let vm = this;
+            
+            // Validation
+            if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
+            if (!this.code) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
+            if (!this.password || !this.password1) { swal("Missing Fields", "Please enter and confirm your new password", "error"); return; }
+            if (this.password !== this.password1) { swal("Mismatch", "Passwords do not match", "error"); return; }
+            if (this.password.length < 8) { swal("Invalid", "Password must be at least 8 characters long", "error"); return; }
+
+            vm.loading = 'loading';
+
+            try {
+                // Step 2: Verify the 6-digit OTP to get the secure reset_token UUID
+                const verifyRes = await axios.post('/api/auth/password/forgot-verify', {
+                    msisdn: vm.msisdn,
+                    code: vm.code
+                });
+
+                // Extract the UUID from the response wrapper
+                const resetToken = verifyRes.data.data.reset_token;
+
+                // Step 3: Immediately use the reset_token to set the new password
+                await axios.post('/api/auth/password/reset', {
+                    msisdn: vm.msisdn,
+                    reset_token: resetToken,
+                    new_password: vm.password
+                });
+
+                vm.loading = '';
+                swal("Success", "Your password has been reset successfully. Please log in with your new credentials.", "success")
+                    .then(() => {
+                        // Clear sensitive data and return to login screen
+                        vm.password = '';
+                        vm.password1 = '';
+                        vm.code = '';
+                        vm.showLogin(); 
+                    });
+
+            } catch (err) {
+                vm.showError(err);
+            }
+        },
+
+    
     }
 });

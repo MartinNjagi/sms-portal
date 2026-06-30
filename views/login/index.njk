@@ -30,6 +30,9 @@
                 <a href="#" @click.prevent="showForgotPassword" class="text-decoration-none">Forgot Password?</a>
                 <a href="#" @click.prevent="showJoin" class="text-decoration-none">Create Account</a>
             </div>
+            <button type="button" @click="passkeyLogin" class="btn btn-outline-dark w-100 mt-2" :disabled="loading === 'loading'">
+                <i class="fas fa-fingerprint"></i> Sign in with Passkey
+            </button>
         </form>
 
         <form v-if="show_signup === 1" @submit.prevent="signup">
@@ -134,15 +137,29 @@
         </form>
 
         <div v-if="show_signup === 5">
-        <div class="form-group">
-            <label>Verification Code</label>
-            <input type="text" class="form-control" v-model="OTPcode" placeholder="Enter 6-digit code">
+            <div class="form-group">
+                <label>Verification Code</label>
+                <input type="text" class="form-control" v-model="OTPcode" placeholder="Enter 6-digit code">
+            </div>
+            <button class="btn btn-primary btn-block" @click="verifyLoginOTP" :disabled="loading === 'loading'">
+                Verify & Login
+            </button>
+            <a href="#" @click="showLogin" class="d-block mt-3 text-center">Back to Login</a>
         </div>
-        <button class="btn btn-primary btn-block" @click="verifyLoginOTP" :disabled="loading === 'loading'">
-            Verify & Login
-        </button>
-        <a href="#" @click="showLogin" class="d-block mt-3 text-center">Back to Login</a>
-    </div>
+
+        <div v-if="show_signup === 6" class="text-center">
+            <h4 class="mb-3">Upgrade your security</h4>
+            <p class="text-muted">Set up a passkey to sign in instantly with your fingerprint, face, or screen lock next time.</p>
+            <i class="fas fa-fingerprint fa-4x text-primary mb-4 mt-2"></i>
+            
+            <button class="btn btn-primary w-100 mb-2" @click="registerPasskey" :disabled="loading === 'loading'">
+                <span v-if="loading === 'loading'">Setting up...</span>
+                <span v-else>Create Passkey</span>
+            </button>
+            <button class="btn btn-light w-100" @click="skipPasskey" :disabled="loading === 'loading'">
+                Not now
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %}
