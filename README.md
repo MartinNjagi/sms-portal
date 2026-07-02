@@ -1,8 +1,6 @@
-Here is a fully fleshed-out, professional README tailored specifically to the Node.js/Express Dashboard (BFF) architecture you have been building.
-
 ---
 
-# RahaPay SMS Dashboard Overwatch (BFF)
+# Clarity SMS Dashboard Overwatch (BFF)
 
 ### What is this repository for?
 
