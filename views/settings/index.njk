@@ -34,7 +34,9 @@
                     <a class="list-group-item list-group-item-action d-flex align-items-center" data-bs-toggle="list" href="#api" role="tab">
                         <span class="me-2">🔌</span> API Keys & Webhooks
                     </a>
-                    
+                    <a class="list-group-item list-group-item-action d-flex align-items-center" data-bs-toggle="list" href="#passkeys" role="tab">
+                        <span class="me-2">🔑</span> Passkeys
+                    </a>
                     {% if user.role == 'ADMIN' %}
                     <a class="list-group-item list-group-item-action d-flex align-items-center bg-dark text-white mt-3" data-bs-toggle="list" href="#adminBilling" role="tab" style="border-radius: 0 0 5px 5px;">
                         <span class="me-2">🛡️</span> Admin Billing Controls
@@ -118,6 +120,51 @@
                                 </div>
                                 <button type="submit" class="btn btn-success px-4">Save Webhook</button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="passkeys" role="tabpanel">
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h4 class="m-0">Passkeys</h4>
+                                    <p class="text-muted small m-0">Sign in securely using your device's fingerprint, face scan, or screen lock.</p>
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="btn-register-passkey">+ Register Device</button>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Device / Credential Name</th>
+                                            <th>Created</th>
+                                            <th>Last Used</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for passkey in passkeys %}
+                                        <tr id="row-passkey-{{ passkey.id }}">
+                                            <td>
+                                                <strong><i class="fas fa-fingerprint text-primary me-2"></i> {{ passkey.name | default('Registered Device') }}</strong>
+                                            </td>
+                                            <td>{{ passkey.created_at | truncate(10, true, "") }}</td>
+                                            <td>{{ passkey.last_used_at | default('Never') | truncate(10, true, "") }}</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger btn-delete-passkey" data-id="{{ passkey.id }}">Remove</button>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">No passkeys registered to this account.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

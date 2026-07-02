@@ -18,4 +18,6 @@ router.put('/api/webhook', settingsController.updateMyWebhook); // New Webhook R
 router.post('/api/admin/wallet-adjust', requireAdmin, settingsController.manualWalletAdjustment);
 router.put('/api/admin/billing-config/:id', requireAdmin, settingsController.updateBillingConfig);
 
+
+router.delete('/api/passkeys/:id',settingsController.deletePasskey);
 module.exports = router;

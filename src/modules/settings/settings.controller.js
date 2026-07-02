@@ -8,33 +8,34 @@ const settingsController = {};
 
 settingsController.renderSettingsPage = async (req, res, next) => {
     try {
-        // Enforce Admin Override Scope
         const targetClientId = (req.user.role === 'ADMIN' && req.query.client_id) 
             ? req.query.client_id 
             : null;
 
-        // Fetch all context concurrently, scoped to the target client if specified
+        // Fetch all context concurrently
         const [
             apiKeysResponse,
             clientResponse,
-            billingConfigResponse
+            billingConfigResponse,
+            passkeysResponse // NEW: Fetch passkeys
         ] = await Promise.all([
             goEngineWrapper.getAPIKeys(req, targetClientId).catch(() => ({ data: [] })),
-            goEngineWrapper.getAllClients(req).catch(() => ({ data: [] })), // Global list for the switcher
-            // If viewing a specific client, fetch their custom billing config
+            goEngineWrapper.getAllClients(req).catch(() => ({ data: [] })),
             targetClientId 
                 ? goEngineWrapper.getClientBillingConfig(targetClientId, req).catch(() => ({ data: {} }))
-                : Promise.resolve({ data: {} }) 
+                : Promise.resolve({ data: {} }),
+            goEngineWrapper.getPasskeys(req, targetClientId).catch(() => ({ data: [] })) // NEW
         ]);
 
         res.render('settings/index.njk', {
             title: 'Account & Billing Settings',
             alias: 'settings',
             user: req.user,
-            targetClientId: targetClientId, // Let the frontend know we are in override mode
+            targetClientId: targetClientId,
             clients: clientResponse.data,
             apiKeys: apiKeysResponse.data,
-            billingConfig: billingConfigResponse.data
+            billingConfig: billingConfigResponse.data,
+            passkeys: passkeysResponse.data // NEW: Inject into template
         });
     } catch (error) {
         next(error);
@@ -123,6 +124,17 @@ settingsController.updateMyWebhook = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// NEW: Delete handler
+settingsController.deletePasskey = async (req, res) => {
+    try {
+        await goEngineWrapper.deletePasskey(req.params.id, req);
+        res.status(200).json({ success: true, message: 'Passkey removed.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 
 
 module.exports = settingsController;

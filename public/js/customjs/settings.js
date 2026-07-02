@@ -227,4 +227,107 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- BASE64 HELPERS FOR WEBAUTHN ---
+    // Safer Base64URL Decoder
+    function bufferDecode(base64url) {
+        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const bin = window.atob(base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '='));
+        return Uint8Array.from(bin, c => c.charCodeAt(0)).buffer;
+    }
+
+    // Safer Base64URL Encoder
+    function bufferEncode(buffer) {
+        const bytes = new Uint8Array(buffer);
+        const chunk = Array.from(bytes, c => String.fromCharCode(c)).join('');
+        return window.btoa(chunk).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    // --- PASSKEY REGISTRATION (CREATE) ---
+    const btnRegisterPasskey = document.getElementById('btn-register-passkey');
+    if (btnRegisterPasskey) {
+        btnRegisterPasskey.addEventListener('click', async (e) => {
+            const btn = e.target;
+            btn.disabled = true;
+            btn.innerText = 'Prompting device...';
+
+            try {
+                // 1. Get challenge
+                const beginRes = await fetch('/api/auth/passkey/register/begin', { method: 'POST' });
+                const beginData = await beginRes.json();
+                if (!beginRes.ok) throw new Error(beginData.error);
+                
+                const options = beginData.data.options;
+                const sessionKey = beginData.data.session_key;
+
+                // Decode buffers
+                options.publicKey.challenge = bufferDecode(options.publicKey.challenge);
+                options.publicKey.user.id = bufferDecode(options.publicKey.user.id);
+
+                // 2. Prompt browser biometrics
+                const credential = await navigator.credentials.create({ publicKey: options.publicKey });
+
+                // Encode buffers for server
+                const credentialPayload = {
+                    id: credential.id,
+                    rawId: bufferEncode(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        attestationObject: bufferEncode(credential.response.attestationObject),
+                        clientDataJSON: bufferEncode(credential.response.clientDataJSON)
+                    }
+                };
+
+                // 3. Finish registration
+                const finishRes = await fetch('/api/auth/passkey/register/finish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_key: sessionKey,
+                        credential: credentialPayload
+                    })
+                });
+
+                if (finishRes.ok) {
+                    alert("Passkey successfully registered!");
+                    location.reload();
+                } else {
+                    const finishData = await finishRes.json();
+                    throw new Error(finishData.error);
+                }
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') { // Ignore if user just closed the OS prompt
+                    alert("Failed to register passkey: " + err.message);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '+ Register Device';
+            }
+        });
+    }
+
+    // --- PASSKEY REMOVAL (DELETE) ---
+    document.querySelectorAll('.btn-delete-passkey').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            if (!confirm('Are you sure you want to remove this passkey? You will no longer be able to log in with this device.')) return;
+            
+            const keyId = e.target.getAttribute('data-id');
+            e.target.disabled = true;
+
+            try {
+                const res = await fetch(`/settings/api/passkeys/${keyId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    document.getElementById(`row-passkey-${keyId}`).remove();
+                } else {
+                    const result = await res.json();
+                    alert(result.error || 'Failed to remove passkey.');
+                    e.target.disabled = false;
+                }
+            } catch (err) {
+                alert('A network error occurred.');
+                e.target.disabled = false;
+            }
+        });
+    });
+
+
 });

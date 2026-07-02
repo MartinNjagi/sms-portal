@@ -485,31 +485,52 @@ const deleteRole = async (req, roleId) => {
 // ─── PASSKEYS (WEBAUTHN) ───────────────────────────────────────────────────
 
 const passkeyLoginBegin = async (msisdn, req) => {
-    // msisdn is optional (can be null/empty for discoverable credentials)
-    const payload = { msisdn };
     try {
+        const payload = { msisdn: msisdn || "" };
+        const rawBodyString = JSON.stringify(payload);
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
         const response = await clients.identity.post(
             '/api/v1/passkey/login/begin',
-            payload,
-            withContext(req, {}, payload)
+            rawBodyString,
+            {
+                headers: {
+                    'X-Signature': signature,
+                    'X-Timestamp': timestamp,
+                    'X-Nonce': nonce,
+                    'Content-Type': 'application/json'
+                }
+            }
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'passkeyLoginBegin');
-    }
+    } catch (error) { handleEngineError(error, 'passkeyLoginBegin'); }
 };
 
 const passkeyLoginFinish = async (payload, req) => {
     try {
+        const rawBodyString = JSON.stringify(payload);
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
         const response = await clients.identity.post(
             '/api/v1/passkey/login/finish',
-            payload,
-            withContext(req, {}, payload)
+            rawBodyString,
+            {
+                headers: {
+                    'X-Signature': signature,
+                    'X-Timestamp': timestamp,
+                    'X-Nonce': nonce,
+                    'Content-Type': 'application/json'
+                }
+            }
         );
         return response.data;
-    } catch (error) {
-        handleEngineError(error, 'passkeyLoginFinish');
-    }
+    } catch (error) { handleEngineError(error, 'passkeyLoginFinish'); }
 };
 
 const passkeyRegisterBegin = async (req) => {
@@ -517,10 +538,26 @@ const passkeyRegisterBegin = async (req) => {
         const token = getJWT(req);
         if (!token) throw new Error('Missing JWT token on request context');
 
+        // Your clever workaround: Force a predictable JSON object
+        const payload = { msisdn: "" }; 
+        const rawBodyString = JSON.stringify(payload);
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
         const response = await clients.identity.post(
             '/api/v1/passkey/register/begin',
-            {}, // No body needed; Go backend extracts identity from the JWT
-            withContext(req, { Authorization: `Bearer ${token}` })
+            rawBodyString,
+            {
+                headers: {
+                    'X-Signature': signature,
+                    'X-Timestamp': timestamp,
+                    'X-Nonce': nonce,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
         );
         return response.data;
     } catch (error) {
@@ -533,16 +570,56 @@ const passkeyRegisterFinish = async (payload, req) => {
         const token = getJWT(req);
         if (!token) throw new Error('Missing JWT token on request context');
 
+        // FIX FOR DEEP NESTED WEBAUTHN OBJECTS:
+        // We stringify the payload exactly once. We sign this exact string, 
+        // and we send this exact string. This prevents Axios or Go from 
+        // reordering the JSON keys and breaking the HMAC signature.
+        const rawBodyString = JSON.stringify(payload);
+
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
+        const headers = {
+            'X-Signature': signature,
+            'X-Timestamp': timestamp,
+            'X-Nonce': nonce,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+
         const response = await clients.identity.post(
             '/api/v1/passkey/register/finish',
-            payload,
-            withContext(req, { Authorization: `Bearer ${token}` }, payload)
+            rawBodyString, 
+            { headers }
         );
         return response.data;
     } catch (error) {
         handleEngineError(error, 'passkeyRegisterFinish');
     }
 };
+
+const getPasskeys = async (req, clientId = null) => {
+    try {
+        const url = clientId ? `/api/v1/passkey?client_id=${clientId}` : '/api/v1/passkey';
+        const response = await clients.identity.get(
+            url,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'getPasskeys'); }
+};
+
+const deletePasskey = async (id, req) => {
+    try {
+        const response = await clients.identity.delete(
+            `/api/v1/passkey/${id}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'deletePasskey'); }
+};
+
 
 // ----------------------------------------------------------------------------
 // WALLET SERVICE
@@ -1056,6 +1133,8 @@ module.exports = {
     passkeyLoginFinish,
     passkeyRegisterBegin,
     passkeyRegisterFinish,
+    getPasskeys, deletePasskey,
+
 
     // wallet
     getClientBalance,
