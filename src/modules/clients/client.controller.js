@@ -105,5 +105,43 @@ clientController.viewClientUsers = async (req, res, next) => {
     }
 };
 
+clientController.suspendClientAction = async (req, res) => {
+    try {
+        await goEngineWrapper.suspendClient(req.params.id, req);
+        res.status(200).json({ success: true, message: 'Client suspended and users locked out.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+clientController.reinstateClientAction = async (req, res) => {
+    try {
+        await goEngineWrapper.reinstateClient(req.params.id, req);
+        res.status(200).json({ success: true, message: 'Client reinstated.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+clientController.createClientAction = async (req, res) => {
+    try {
+        // Go expects: { name: string, status?: string }
+        const payload = { name: req.body.name, status: req.body.status || 'active' };
+        const result = await goEngineWrapper.createClient(payload, req);
+        res.status(201).json({ success: true, message: 'Tenant created successfully!', data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+clientController.updateClientAction = async (req, res) => {
+    try {
+        const payload = { name: req.body.name };
+        const result = await goEngineWrapper.updateClient(req.params.id, payload, req);
+        res.status(200).json({ success: true, message: 'Tenant updated successfully!', data: result.data });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 module.exports = clientController;

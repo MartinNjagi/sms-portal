@@ -259,6 +259,60 @@ const getAllClients = async (req) => {
     }
 };
 
+const createClient = async (payload, req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const rawBodyString = JSON.stringify(payload);
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
+        const response = await clients.identity.post(
+            '/api/v1/clients',
+            rawBodyString,
+            {
+                headers: {
+                    'X-Signature': signature,
+                    'X-Timestamp': timestamp,
+                    'X-Nonce': nonce,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'createClient'); }
+};
+
+const updateClient = async (id, payload, req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const rawBodyString = JSON.stringify(payload);
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const nonce = crypto.randomUUID();
+        const signature = signPayload(rawBodyString, timestamp, nonce);
+
+        const response = await clients.identity.put(
+            `/api/v1/clients/${id}`,
+            rawBodyString,
+            {
+                headers: {
+                    'X-Signature': signature,
+                    'X-Timestamp': timestamp,
+                    'X-Nonce': nonce,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'updateClient'); }
+};
+
 const updateClientStatus = async (targetClientId, status, req) => {
     try {
         const payload = { status };
@@ -270,6 +324,35 @@ const updateClientStatus = async (targetClientId, status, req) => {
         return response.data;
     } catch (error) { handleEngineError(error, 'updateClientStatus'); }
 };
+
+const suspendClient = async (targetClientId, req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.identity.post(
+            `/api/v1/clients/${targetClientId}/suspend`,
+            null, 
+            withContext(req, { Authorization: `Bearer ${token}` }, null)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'suspendClient'); }
+};
+
+const reinstateClient = async (targetClientId, req) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token on request context');
+
+        const response = await clients.identity.post(
+            `/api/v1/clients/${targetClientId}/reinstate`,
+            null, 
+            withContext(req, { Authorization: `Bearer ${token}` }, null)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'reinstateClient'); }
+};
+
 
 const getRoles = async (req) => {
     try {
@@ -1121,7 +1204,8 @@ module.exports = {
     // Identity
     requestOtp,    verifyOtp,
     forgotPasswordSend, forgotPasswordVerify, resetPassword,
-    getAllClients,
+    getAllClients,createClient,updateClient,
+    reinstateClient,suspendClient,
     getUsers,getUser,
     createUser,updateUser,deleteUser,
     assignRole,
