@@ -188,11 +188,13 @@ messageController.triggerBulkCampaign = async (req, res, next) => {
 
 messageController.sendSingle = async (req, res, next) => {
     try {
-        const { msisdn, sender_id, message } = req.body;        
+        // ADD priority TO THE DESTRUCTURED BODY
+        const { msisdn, sender_id, message, priority } = req.body;        
         const goPayload = {
             msisdn: msisdn,
             sender_id: sender_id,
-            message: message
+            message: message,
+            priority: priority // <-- ADD THIS LINE
         };
 
         const result = await goEngineWrapper.sendSingleSMS(goPayload, req);

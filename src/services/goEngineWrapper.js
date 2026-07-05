@@ -806,6 +806,28 @@ const updateBillingConfig = async (targetClientId, payload, req) => {
 };
 
 
+const initiateMpesaTopUp = async (payload, req) => {
+    try {
+        const response = await clients.wallet.post(
+            '/api/v1/wallet/topup',
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'initiateMpesaTopUp'); }
+};
+
+const initiateCardTopUp = async (payload, req) => {
+    try {
+        const response = await clients.wallet.post(
+            '/api/v1/wallet/stripe-topup',
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'initiateCardTopUp'); }
+};
+
 // ----------------------------------------------------------------------------
 // SMS / CAMPAIGN SERVICE
 // ----------------------------------------------------------------------------
@@ -890,13 +912,25 @@ const getCampaignStats = async (id, req) => {
 // Single SMS sending
 const sendSingleSMS = async (payload, req) => {
     try {
+        // 1. Determine the correct Go Engine endpoint
+        const endpoint = payload.priority === 'priority' 
+            ? '/api/v1/sms/priority' 
+            : '/api/v1/sms/send';
+
+        // 2. Clone payload and strip the 'priority' flag so Go doesn't reject unknown JSON fields
+        const goPayload = { ...payload };
+        delete goPayload.priority;
+
+        // 3. Dispatch to the selected endpoint
         const response = await clients.sms.post(
-            '/api/v1/internal/send-sms',
-            payload,
-            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+            endpoint,
+            goPayload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, goPayload)
         );
         return response.data;
-    } catch (error) { handleEngineError(error, 'sendSingleSMS'); }
+    } catch (error) { 
+        handleEngineError(error, 'sendSingleSMS'); 
+    }
 };
 
 // --- CONTACTS & ADDRESS BOOK ---
@@ -1226,6 +1260,7 @@ module.exports = {
     getWalletData,
     manualWalletAdjustment,
     updateBillingConfig,
+    initiateCardTopUp, initiateMpesaTopUp,
 
     // SMS / Campaigns
     

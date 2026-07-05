@@ -19,6 +19,21 @@ const renderWallet = async (req, res, next) => {
     }
 };
 
+
+const triggerMpesa = async (req, res) => {
+    try {
+        const result = await goEngineWrapper.initiateMpesaTopUp(req.body, req);
+        res.status(200).json(result);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+const triggerCard = async (req, res) => {
+    try {
+        const result = await goEngineWrapper.initiateCardTopUp(req.body, req);
+        res.status(200).json(result);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
 module.exports = {
-    renderWallet
+    renderWallet, triggerCard,triggerMpesa
 };

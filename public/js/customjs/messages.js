@@ -175,7 +175,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const payload = {
             msisdn: document.getElementById('singlePhone').value.trim(),
             sender_id: senderSelect.value,
-            message: buildCompiledMessage().trim()
+            message: buildCompiledMessage().trim(),
+            priority: document.getElementById('singlePriority').value // <-- ADD THIS LINE
         };
 
         console.log('Outgoing SendSingle', payload);
