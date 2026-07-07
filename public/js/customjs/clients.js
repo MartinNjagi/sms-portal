@@ -48,4 +48,57 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Bank Transfer Approval Logic
+    const processButtons = document.querySelectorAll('.btn-process-txn');
+    
+    processButtons.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const txnId = e.target.getAttribute('data-id');
+            const action = e.target.getAttribute('data-action');
+            const row = document.getElementById(`txn-row-${txnId}`);
+            
+            const isConfirmed = confirm(`Are you sure you want to ${action.toLowerCase()} this transaction?`);
+            if (!isConfirmed) return;
+
+            const rowBtns = row.querySelectorAll('button');
+            rowBtns.forEach(b => b.disabled = true);
+            e.target.innerText = 'Processing...';
+
+            try {
+                const payload = {
+                    status: action,
+                    description: `Processed from Client Management by Superadmin`
+                };
+
+                // Hitting the endpoint we set up in the settings/billing routes
+                const res = await fetch(`/settings/api/admin/bank-transfer/${txnId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+
+                if (res.ok) {
+                    row.remove();
+                    if (typeof swal !== 'undefined') {
+                        swal("Success", `Transaction has been ${action.toLowerCase()}.`, "success");
+                    }
+                    // Optional: Reload page to update ledger balances below
+                    // window.location.reload(); 
+                } else {
+                    alert(result.error || `Failed to ${action.toLowerCase()} transaction.`);
+                    rowBtns.forEach(b => b.disabled = false);
+                    e.target.innerText = action === 'APPROVED' ? 'Approve' : 'Reject';
+                }
+            } catch (err) {
+                console.error(err);
+                alert('A network error occurred.');
+                rowBtns.forEach(b => b.disabled = false);
+                e.target.innerText = action === 'APPROVED' ? 'Approve' : 'Reject';
+            }
+        });
+    });
+
 });

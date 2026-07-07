@@ -6,13 +6,23 @@ const clientController = {};
 // Render the Admin Overview
 clientController.renderIndex = async (req, res, next) => {
     try {
-        const clients = await goEngineWrapper.getAllClients(req);      
+        const clients = await goEngineWrapper.getAllClients(req); 
+        
+        let pendingTransfers = [];
+        // Ensure only Superadmin (client_id 1) fetches these
+        if (req.user && req.user.client_id === 1) {
+            const transfersRes = await goEngineWrapper.getBankTransfers(req, 'PENDING');
+            if (transfersRes && transfersRes.Data) {
+                pendingTransfers = transfersRes.Data;
+            }
+        }
 
         res.render('client/index.njk', {
             title: 'Client Management',
             alias: 'clients',
             clients: clients.data,
-            user: req.user
+            user: req.user,
+            pendingTransfers
         });
     } catch (error) {
         next(error);

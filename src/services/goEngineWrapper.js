@@ -828,6 +828,38 @@ const initiateCardTopUp = async (payload, req) => {
     } catch (error) { handleEngineError(error, 'initiateCardTopUp'); }
 };
 
+const submitBankTransfer = async (payload, req) => {
+    try {
+        const response = await clients.wallet.post(
+            '/api/v1/wallet/bank-transfer',
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'submitBankTransfer'); }
+};
+
+const approveBankTransfer = async (id, payload, req) => {
+    try {
+        const response = await clients.wallet.post(
+            `/api/v1/admin/wallet/bank-transfer/${id}/approve`,
+            payload,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` }, payload)
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'approveBankTransfer'); }
+};
+const getBankTransfers = async (req, status = '') => {
+    try {
+        const response = await clients.wallet.get(
+            `/api/v1/admin/wallet/bank-transfers?status=${status}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data; // returns the APIResponse object containing Data and Pagination
+    } catch (error) { 
+        handleEngineError(error, 'getBankTransfers'); 
+    }
+};
 // ----------------------------------------------------------------------------
 // SMS / CAMPAIGN SERVICE
 // ----------------------------------------------------------------------------
@@ -1261,6 +1293,7 @@ module.exports = {
     manualWalletAdjustment,
     updateBillingConfig,
     initiateCardTopUp, initiateMpesaTopUp,
+    submitBankTransfer, approveBankTransfer,getBankTransfers,
 
     // SMS / Campaigns
     

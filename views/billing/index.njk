@@ -14,7 +14,7 @@
             <div class="card text-white bg-primary h-100 shadow-sm border-0">
                 <div class="card-body p-4">
                     <h6 class="card-title text-uppercase text-white-50">Available Balance</h6>
-                    <h2 class="display-5 mb-0">{{ wallet.currency }} {{ wallet.balance | intcomma }}</h2>
+                    <h2 class="display-5 mb-0">{{ wallet.balance | intcomma }}</h2>
                 </div>
             </div>
         </div>
@@ -23,7 +23,7 @@
                 <div class="card-body p-4 d-flex align-items-center">
                     <div>
                         <h5 class="text-muted">Billing Plan: <span class="text-dark">Pay-As-You-Go</span></h5>
-                        <p class="mb-0 text-muted">Your account will stop sending messages if the balance reaches 0.00. Enable Auto-Recharge to prevent interruptions.</p>
+                        <p class="mb-0 text-muted">Your account will stop sending messages if the balance reaches 0.</p>
                     </div>
                 </div>
             </div>
@@ -94,8 +94,8 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#card-tab" type="button">
-                            <i class="bi bi-credit-card"></i> Bank Card
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#bank-tab" type="button">
+                            <i class="bi bi-bank"></i> Bank Receipt
                         </button>
                     </li>
                 </ul>
@@ -115,13 +115,17 @@
                         </form>
                     </div>
 
-                    <div class="tab-pane fade" id="card-tab">
-                        <form id="form-card-topup">
-                            <div class="mb-4">
-                                <label class="form-label">Amount (KES)</label>
-                                <input type="number" class="form-control" id="cardAmount" min="100" required>
+                    <div class="tab-pane fade" id="bank-tab">
+                        <form id="form-bank-topup">
+                            <div class="mb-3">
+                                <label class="form-label">Amount Deposited (KES)</label>
+                                <input type="number" class="form-control" id="bankAmount" min="100" required>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100" id="btn-card-pay">Proceed to Secure Checkout</button>
+                            <div class="mb-4">
+                                <label class="form-label">Bank Reference / Receipt Number</label>
+                                <input type="text" class="form-control" id="bankReference" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="btn-bank-pay">Submit Receipt for Approval</button>
                         </form>
                     </div>
                 </div>

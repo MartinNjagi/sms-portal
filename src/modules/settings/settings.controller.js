@@ -65,6 +65,16 @@ settingsController.updateBillingConfig = async (req, res) => {
     }
 };
 
+settingsController.approveBankTransfer = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await goEngineWrapper.approveBankTransfer(id, req.body, req);
+        res.status(200).json({ success: true, message: 'Bank transfer processed.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // ==========================================
 // 3. API KEY MANAGEMENT
 // ==========================================

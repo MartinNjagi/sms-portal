@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await fetch('/messages/api/dashboard-data'); 
         const { data } = await res.json();
         
-        document.getElementById('stat-balance').innerText = data.balance.toFixed(2);
+        document.getElementById('stat-balance').innerText = data.balance;
         
         const senderSelect = document.getElementById('campSenderId');
         senderSelect.innerHTML = '<option value="" disabled selected>Select Sender ID</option>';
@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td><strong>${msg.MSISDN}</strong></td>
                         <td>${msg.SenderID}</td>
                         <td class="text-truncate text-muted small" style="max-width: 250px;" title="${msg.Message.replace(/"/g, '&quot;')}">${msgPreview}</td>
-                        <td>KES ${msg.Cost}</td>
+                        <td>${msg.Cost} Units</td>
                         <td><span class="badge badge-${statusClass}">${msg.Status}</span></td>
                     </tr>
                 `;

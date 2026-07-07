@@ -10,6 +10,5 @@ router.use(requireAuth, requireAdmin);
 router.get('/billing', requireAuth, billingController.renderWallet);
 
 router.post('/api/topup/mpesa', billingController.triggerMpesa);
-router.post('/api/topup/card', billingController.triggerCard);
-
+router.post('/api/topup/bank-transfer', billingController.submitBankTransfer);
 module.exports = router;

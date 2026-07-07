@@ -20,21 +20,39 @@ document.getElementById('form-mpesa-topup')?.addEventListener('submit', async (e
     }
 });
 
-document.getElementById('form-card-topup')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btn-card-pay');
-    btn.disabled = true;
-    btn.innerText = 'Redirecting...';
+const bankForm = document.getElementById('form-bank-topup');
+if (bankForm) {
+    bankForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn-bank-pay');
+        btn.disabled = true;
+        btn.innerText = 'Submitting...';
 
-    const payload = { amount: parseFloat(document.getElementById('cardAmount').value) };
+        const payload = {
+            amount: parseFloat(document.getElementById('bankAmount').value),
+            reference_number: document.getElementById('bankReference').value
+        };
 
-    try {
-        // Your backend should return a Stripe/Gateway checkout URL
-        const res = await axios.post('/accounts/api/topup/card', payload);
-        window.location.href = res.data.checkoutUrl; 
-    } catch (err) {
-        swal("Error", err.response?.data?.error || "Failed to initialize checkout", "error");
-        btn.disabled = false;
-        btn.innerText = 'Proceed to Secure Checkout';
-    }
-});
+        try {
+            const res = await fetch('/accounts/api/topup/bank-transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (res.ok) {
+                swal("Success", "Bank transfer submitted for approval. We will credit your account once verified.", "success");
+                bankForm.reset();
+                bootstrap.Modal.getInstance(document.getElementById('topUpModal')).hide();
+            } else {
+                swal("Error", result.error || "Failed to submit receipt", "error");
+            }
+        } catch (err) {
+            swal("Error", "Network error occurred.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Submit Receipt for Approval';
+        }
+    });
+}
