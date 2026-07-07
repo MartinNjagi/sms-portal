@@ -30,8 +30,10 @@
                 <a href="#" @click.prevent="showForgotPassword" class="text-decoration-none">Forgot Password?</a>
                 <a href="#" @click.prevent="showJoin" class="text-decoration-none">Create Account</a>
             </div>
-            <button type="button" @click="passkeyLogin" class="btn btn-outline-dark w-100 mt-2" :disabled="loading === 'loading'">
-                <i class="fas fa-fingerprint"></i> Sign in with Passkey
+            <button type="button" @click="passkeyLogin" 
+                    class="btn btn-light border border-primary text-primary w-100 mt-2"
+                    :disabled="loading === 'loading'"> <i class="fas fa-fingerprint me-2"></i>
+                    Sign in with Passkey
             </button>
         </form>
 
