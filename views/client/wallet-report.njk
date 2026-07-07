@@ -9,48 +9,60 @@
     <a href="/clients" class="btn btn-outline-secondary shadow-sm">&larr; Back to Clients</a>
 </div>
 
-<div class="card shadow-sm border-0">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="px-4 py-3">Date</th>
-                        <th class="py-3">Transaction Type</th>
-                        <th class="py-3">Reference</th>
-                        <th class="px-4 py-3 text-end">Amount (Credits)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tx in transactions %}
-                    <tr>
-                        <td class="px-4 text-muted align-middle">{{ tx.createdAt }}</td>
-                        <td class="align-middle">
-                            {% if tx.type == 'recharge' %}
-                                <span class="badge bg-success">Top Up</span>
-                            {% elif tx.type == 'deduction' %}
-                                <span class="badge bg-secondary">Campaign Send</span>
-                            {% elif tx.type == 'refund' %}
-                                <span class="badge bg-info text-dark">Refund</span>
-                            {% else %}
-                                <span class="badge bg-light text-dark">{{ tx.type }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="align-middle">{{ tx.reference }}</td>
-                        <td class="px-4 text-end fw-bold align-middle {% if tx.amount > 0 %}text-success{% else %}text-danger{% endif %}">
-                            {{ tx.amount }}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center py-5 text-muted">
-                            No transactions found for this client.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="col-md-4">
+    <div class="card text-white bg-primary h-100 shadow-sm border-0">
+        <div class="card-body p-4">
+            <h6 class="card-title text-uppercase text-white-50">Available Balance</h6>
+            <h2 class="display-5 mb-0">{{ balance | intcomma }} Units</h2>
         </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 p-4">
+    <h4 class="mb-3">Transaction History</h4>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Transaction ID</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th class="text-end">Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in wallet.transactions %}
+                <tr>
+                    <td>{{ tx.created_at| formatDate}}</td>
+                    <td class="text-muted font-monospace">{{ tx.id }}</td>
+                    <td>{{ tx.description }}</td>
+                    <td>
+                        {% if tx.type == 'Credit' %}
+                            <span class="badge bg-success bg-opacity-10 text-success">Credit</span>
+                        {% else %}
+                            <span class="badge bg-danger bg-opacity-10 text-danger">Debit</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold {% if tx.amount > 0 %}text-success{% endif %}">
+                        {{ tx.amount | intcomma }}
+                    </td>
+                    <td>
+                        {% if tx.status == 'Completed' %}
+                            <span class="text-success"><small>&#9679;</small> Completed</span>
+                        {% else %}
+                            <span class="text-warning"><small>&#9679;</small> {{ tx.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No recent transactions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

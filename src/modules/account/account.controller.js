@@ -6,9 +6,9 @@ const accountController = {};
 accountController.renderMyBilling = async (req, res, next) => {
     try {
         // User is looking at their OWN history. 
-        // We guarantee they can't spoof this because req.user.clientId 
+        // We guarantee they can't spoof this because req.user.client_id 
         // comes directly from the decoded HttpOnly secure cookie/token.
-        const myId = req.user.clientId; 
+        const myId = req.user.client_id; 
         
         const transactions = await goEngineWrapper.getWalletHistory(req.token, myId,req);
 

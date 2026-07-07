@@ -49,6 +49,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 3. Open Edit Modal and Populate Fields
+    document.querySelectorAll('.btn-edit-client').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const btnEl = e.currentTarget;
+            document.getElementById('editClientId').value = btnEl.dataset.id;
+            document.getElementById('editClientName').value = btnEl.dataset.name;
+            
+            new bootstrap.Modal(document.getElementById('editClientModal')).show();
+        });
+    });
+
+    // 4. Submit Edit Tenant Form
+    const editClientForm = document.getElementById('form-edit-client');
+    if (editClientForm) {
+        editClientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-edit');
+            const clientId = document.getElementById('editClientId').value;
+            const clientName = document.getElementById('editClientName').value;
+
+            btn.disabled = true; btn.innerText = 'Saving...';
+            try {
+                const res = await axios.put(`/clients/clients/${clientId}`, { name: clientName });
+                swal("Success", res.data.message, "success").then(() => location.reload());
+            } catch (err) {
+                swal("Error", err.response?.data?.error || "Failed to update tenant.", "error");
+            } finally {
+                btn.disabled = false; btn.innerText = 'Save Changes';
+            }
+        });
+    }
+
     // Bank Transfer Approval Logic
     const processButtons = document.querySelectorAll('.btn-process-txn');
     

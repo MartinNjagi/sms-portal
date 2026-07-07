@@ -12,19 +12,24 @@ settingsController.renderSettingsPage = async (req, res, next) => {
             ? req.query.client_id 
             : null;
 
+        // Determine which client ID we are fetching the profile for
+        const profileClientId = targetClientId ? targetClientId : req.user.client_id;
+
         // Fetch all context concurrently
         const [
             apiKeysResponse,
             clientResponse,
             billingConfigResponse,
-            passkeysResponse // NEW: Fetch passkeys
+            passkeysResponse,
+            clientProfileResponse // <--- NEW
         ] = await Promise.all([
             goEngineWrapper.getAPIKeys(req, targetClientId).catch(() => ({ data: [] })),
             goEngineWrapper.getAllClients(req).catch(() => ({ data: [] })),
             targetClientId 
                 ? goEngineWrapper.getClientBillingConfig(targetClientId, req).catch(() => ({ data: {} }))
                 : Promise.resolve({ data: {} }),
-            goEngineWrapper.getPasskeys(req, targetClientId).catch(() => ({ data: [] })) // NEW
+            goEngineWrapper.getPasskeys(req, targetClientId).catch(() => ({ data: [] })),
+            goEngineWrapper.getClient(req, profileClientId).catch(() => ({ data: {} })) // <--- NEW
         ]);
 
         res.render('settings/index.njk', {
@@ -35,13 +40,13 @@ settingsController.renderSettingsPage = async (req, res, next) => {
             clients: clientResponse.data,
             apiKeys: apiKeysResponse.data,
             billingConfig: billingConfigResponse.data,
-            passkeys: passkeysResponse.data // NEW: Inject into template
+            passkeys: passkeysResponse.data,
+            clientProfile: clientProfileResponse.data // <--- NEW (Injecting into template)
         });
     } catch (error) {
         next(error);
     }
 };
-
 // ==========================================
 // 2. ADMIN WALLET & BILLING ACTIONS
 // ==========================================

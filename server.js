@@ -25,7 +25,16 @@ env.addFilter('intcomma', function(val) {
     if (val === null || val === undefined) return '';
     return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 });
-
+// Register the custom date formatter filter
+env.addFilter('formatDate', function(dateString) {
+    if (!dateString) return 'N/A';
+    
+    // Convert Go's "YYYY-MM-DD HH:mm:ss" to ISO "YYYY-MM-DDTHH:mm:ss"
+    const isoString = String(dateString).replace(' ', 'T'); 
+    const d = new Date(isoString);
+    
+    return isNaN(d) ? dateString : d.toLocaleString();
+});
 
 app.set('view engine', 'njk'); // Tells Express that .njk is the default view engine
 // -----------------------------

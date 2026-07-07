@@ -242,7 +242,20 @@ const resetPassword = async (msisdn, resetToken, newPassword, req) => {
 };
 
 
+const getClient = async (req, clientId) => {
+    try {
+        const token = getJWT(req);
+        if (!token) throw new Error('Missing JWT token');
 
+        const response = await clients.identity.get(
+            `/api/v1/clients/${clientId}`, // Ensure this matches your Go router
+            withContext(req, { Authorization: `Bearer ${token}` })
+        );
+        return response.data;
+    } catch (error) { 
+        handleEngineError(error, 'getClient'); 
+    }
+};
 
 const getAllClients = async (req) => {
     try {
@@ -1270,7 +1283,7 @@ module.exports = {
     // Identity
     requestOtp,    verifyOtp,
     forgotPasswordSend, forgotPasswordVerify, resetPassword,
-    getAllClients,createClient,updateClient,
+    getAllClients,createClient,updateClient,getClient,
     reinstateClient,suspendClient,
     getUsers,getUser,
     createUser,updateUser,deleteUser,

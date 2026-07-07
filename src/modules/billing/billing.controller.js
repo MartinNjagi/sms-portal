@@ -3,16 +3,18 @@ const goEngineWrapper = require('../../services/goEngineWrapper');
 
 const renderWallet = async (req, res, next) => {
     try {
-        const clientId = req.user.clientId;
+        const clientId = req.user.client_id;
         
         // Fetch the wallet data using the logged-in user's client ID
         const walletData = await goEngineWrapper.getWalletData(req);
-        
+        const balRes = await goEngineWrapper.getClientBalance(req);
+        const balance = balRes.data.balance
         res.render('billing/index.njk', { 
             title: 'My Wallet & Billing',
             alias: 'billing', // This ensures the sidebar link highlights correctly
             user: req.user,
-            wallet: walletData.data
+            wallet: walletData.data,
+            balance:balance
         });
     } catch (error) {
         next(error);

@@ -33,13 +33,15 @@ clientController.renderIndex = async (req, res, next) => {
 clientController.renderWalletReport = async (req, res, next) => {
     try {
         const { clientId } = req.params;
-        const transactions = await goEngineWrapper.getWalletHistory(req, clientId);
-
+        const transactions = await goEngineWrapper.getWalletData(req, clientId);
+        const balRes = await goEngineWrapper.getClientBalance(req,clientId);
+        const balance = balRes.data.balance
         res.render('client/wallet-report.njk', {
             title: 'Wallet History',
             alias: 'clients',
-            user: req.user, // <--- MUST INCLUDE THIS
-            transactions: transactions
+            user: req.user,
+            wallet: transactions.data,
+            balance:balance
         });
     } catch (error) {
         next(error);
@@ -76,7 +78,7 @@ clientController.renderAdminWalletReport = async (req, res, next) => {
 clientController.viewMyTeam = async (req, res, next) => {
     try {
         // Extract the client ID securely from the JWT session data
-        const clientId = req.user.clientId; 
+        const clientId = req.user.client_id; 
 
         // Optional safety check: If a System Admin (Client ID 0) clicks this, 
         // you might want to redirect them to the master client list instead.

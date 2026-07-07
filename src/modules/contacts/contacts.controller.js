@@ -127,7 +127,7 @@ contactsController.getUploadUrl = async (req, res, next) => {
         const { fileName, fileType } = req.query;
         if (!fileName || !fileType) return res.status(400).json({ error: 'Missing file details.' });
 
-        const uniqueFileKey = `contacts/${req.user.clientId}/${Date.now()}_${fileName}`;
+        const uniqueFileKey = `contacts/${req.user.client_id}/${Date.now()}_${fileName}`;
         const signedUrl = await s3Service.generatePresignedPutUrl(uniqueFileKey, fileType);
 
         res.status(200).json({ success: true, data: { uploadUrl: signedUrl, fileKey: uniqueFileKey } });

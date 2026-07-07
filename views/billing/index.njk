@@ -14,7 +14,7 @@
             <div class="card text-white bg-primary h-100 shadow-sm border-0">
                 <div class="card-body p-4">
                     <h6 class="card-title text-uppercase text-white-50">Available Balance</h6>
-                    <h2 class="display-5 mb-0">{{ wallet.balance | intcomma }}</h2>
+                    <h2 class="display-5 mb-0">{{ balance | intcomma }} Units</h2>
                 </div>
             </div>
         </div>
@@ -47,7 +47,7 @@
                 <tbody>
                     {% for tx in wallet.transactions %}
                     <tr>
-                        <td>{{ tx.date }}</td>
+                        <td>{{ tx.created_at| formatDate}}</td>
                         <td class="text-muted font-monospace">{{ tx.id }}</td>
                         <td>{{ tx.description }}</td>
                         <td>

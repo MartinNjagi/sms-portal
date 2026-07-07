@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const payload = {
             msisdn: cleanPhone,
-            sender_id: senderSelect.value,
+            sender_id: singleSenderId.value,
             message: buildCompiledMessage().trim(),
             priority: document.getElementById('singlePriority').value // <-- ADD THIS LINE
         };
