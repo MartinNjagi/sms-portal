@@ -152,7 +152,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ==========================================
     quickForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
+        // Phone normalizer block
+        const rawPhone = document.getElementById('singlePhone').value.trim();
+        const normalizeTo254 = (phone) => {
+            if (!phone || typeof phone !== 'string') return null;
+            let p = phone.replace(/\D/g, '');
+            if (!p) return null;
+            if (p.length === 12 && p.startsWith('254')) return p;
+            if (p.length === 10 && (p.startsWith('07') || p.startsWith('01'))) return '254' + p.substring(1);
+            if (p.length === 9 && (p.startsWith('7') || p.startsWith('1'))) return '254' + p;
+            return null;
+        };
+
+        const cleanPhone = normalizeTo254(rawPhone);
+        if (!cleanPhone) {
+            alert('Invalid phone number format. Must be a valid 12-digit format (e.g., 2547...).');
+            return;
+        }
+
         const btn = document.getElementById('btn-send-single');
         btn.disabled = true;
         btn.innerText = 'Sending...';
@@ -173,7 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const payload = {
-            msisdn: document.getElementById('singlePhone').value.trim(),
+            msisdn: cleanPhone,
             sender_id: senderSelect.value,
             message: buildCompiledMessage().trim(),
             priority: document.getElementById('singlePriority').value // <-- ADD THIS LINE

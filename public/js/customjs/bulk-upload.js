@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             senderId: document.getElementById('campSenderId').value,
             messageContent: document.getElementById('campMessage').value, 
             templateName: document.getElementById('campTemplateName').value,
-            targetType: campTargetType.value
+            targetType: document.getElementById('campTargetType').value
         };
 
         const schedTime = document.getElementById('campScheduledFor').value;
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = 'Send / Schedule Campaign';
-            progress.classList.add('d-none');
+            if(progress) progress.classList.add('d-none');
         }
     });
 

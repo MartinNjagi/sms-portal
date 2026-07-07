@@ -1,5 +1,16 @@
 // public/js/customjs/login.js
 
+// --- PHONE NUMBER NORMALIZER ---
+function normalizeTo254(phone) {
+    if (!phone || typeof phone !== 'string') return null;
+    let p = phone.replace(/\D/g, '');
+    if (!p) return null;
+    if (p.length === 12 && p.startsWith('254')) return p;
+    if (p.length === 10 && (p.startsWith('07') || p.startsWith('01'))) return '254' + p.substring(1);
+    if (p.length === 9 && (p.startsWith('7') || p.startsWith('1'))) return '254' + p;
+    return null;
+}
+
 // --- WEBAUTHN BASE64 HELPERS ---
 function bufferDecode(value) {
     const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
@@ -96,6 +107,10 @@ let loginVM = new Vue({
             if (!this.password) { swal("Missing Fields", "Missing Password", "error"); return; }
             if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
             
+            const cleanPhone = normalizeTo254(this.msisdn);
+            if (!cleanPhone) { swal("Error", "Invalid phone number format. Must be a valid Kenyan number.", "error"); return; }
+            this.msisdn = cleanPhone;
+
             let data = {
                 msisdn: this.msisdn,
                 password: this.password
@@ -134,6 +149,10 @@ let loginVM = new Vue({
             if (this.loading) return;
             if (!this.OTPcode) { swal("Missing Fields", "Missing Verification Code", "error"); return; }
             if (!this.msisdn) { swal("Missing Fields", "Missing Mobile Number", "error"); return; }
+
+            const cleanPhone = normalizeTo254(this.msisdn);
+            if (!cleanPhone) { swal("Error", "Invalid phone number format.", "error"); return; }
+            this.msisdn = cleanPhone;
 
             let data = {
                 msisdn: this.msisdn,
