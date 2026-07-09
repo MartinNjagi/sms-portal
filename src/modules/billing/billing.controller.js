@@ -10,12 +10,14 @@ const renderWallet = async (req, res, next) => {
         const balRes = await goEngineWrapper.getClientBalance(req);
         const balance = balRes.data.balance
         const payRef = balRes.data.payment_ref
+        
         res.render('billing/index.njk', { 
             title: 'My Wallet & Billing',
             alias: 'billing', // This ensures the sidebar link highlights correctly
             user: req.user,
             wallet: walletData.data,
-            balance:balance,
+            balance: balance,
+            payRef: payRef,
             paybillNumber: process.env.PAYBILL_NUMBER || '174379'
         });
     } catch (error) {
