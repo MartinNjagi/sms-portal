@@ -9,6 +9,7 @@ const renderWallet = async (req, res, next) => {
         const walletData = await goEngineWrapper.getWalletData(req);
         const balRes = await goEngineWrapper.getClientBalance(req);
         const balance = balRes.data.balance
+        const payRef = balRes.data.payment_ref
         res.render('billing/index.njk', { 
             title: 'My Wallet & Billing',
             alias: 'billing', // This ensures the sidebar link highlights correctly
