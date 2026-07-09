@@ -787,6 +787,7 @@ const getWalletData = async (req, targetClientId = null) => {
                 // Handle Go's JSON shape (GetBalance doesn't wrap in "data", ListLedger does)
                 balance: balanceRes.data?.balance ?? 0, 
                 currency: balanceRes.data?.currency ?? 'KES',
+                payment_ref: balanceRes.data?.payment_ref ?? 'PENDING',
                 transactions: ledgerRes.data?.data || [],
                 pagination: ledgerRes.data?.pagination || null
             }

@@ -113,6 +113,23 @@
                             </div>
                             <button type="submit" class="btn btn-success w-100" id="btn-mpesa-pay">Trigger STK Push</button>
                         </form>
+
+                        <hr class="my-4">
+                        <div class="alert alert-secondary border-0 shadow-sm mb-0" role="alert">
+                            <h6 class="alert-heading fw-bold text-dark">
+                                <i class="bi bi-info-circle text-primary me-1"></i> Manual M-Pesa Top Up
+                            </h6>
+                            <p class="mb-3 small text-muted">If the STK push prompt does not appear on your phone, you can deposit funds manually using the details below. Your wallet will be credited automatically.</p>
+                            
+                            <div class="bg-white p-3 rounded border">
+                                <ul class="list-unstyled mb-0 small">
+                                    <li class="mb-2">1. Go to M-Pesa > Lipa na M-Pesa > <strong>Paybill</strong></li>
+                                    <li class="mb-2">2. Business Number: <strong class="text-dark fs-6">{{ paybillNumber }}</strong></li>
+                                    <li class="mb-2">3. Account Number: <strong class="text-primary fs-6 font-monospace">{{ wallet.payment_ref }}</strong></li>
+                                    <li>4. Enter Amount & M-Pesa PIN</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="tab-pane fade" id="bank-tab">

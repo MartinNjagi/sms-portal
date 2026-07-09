@@ -14,7 +14,8 @@ const renderWallet = async (req, res, next) => {
             alias: 'billing', // This ensures the sidebar link highlights correctly
             user: req.user,
             wallet: walletData.data,
-            balance:balance
+            balance:balance,
+            paybillNumber: process.env.PAYBILL_NUMBER || '174379'
         });
     } catch (error) {
         next(error);
