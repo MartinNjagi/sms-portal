@@ -205,9 +205,9 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
                                         <select id="adjClientId" class="form-select admin-client-dropdown" required>
-                                            <option value="" disabled selected>Select a client...</option>
+                                            <option value="" disabled {% if not targetClientId %}selected{% endif %}>Select a client...</option>
                                             {% for c in clients %}
-                                                <option value="{{ c.id }}">[{{ c.id }}] {{ c.name }}</option>
+                                                <option value="{{ c.id }}" {% if targetClientId == c.id %}selected{% endif %}>[{{ c.id }}] {{ c.name }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
@@ -234,33 +234,24 @@
                         </div>
                     </div>
 
-                    <div class="card shadow-sm border-0 border-left-warning">
+                    <div class="card shadow-sm border-0 border-left-warning mb-4">
                         <div class="card-header bg-white py-3">
                             <h5 class="m-0 font-weight-bold text-dark">Update Client Billing Configuration</h5>
                             <p class="text-muted small m-0">Override base rates or SLA refund settings for specific tenants.</p>
                         </div>
                         <div class="card-body p-4">
+                            {% if targetClientId %}
                             <form id="form-billing-config" autocomplete="off">
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label class="fw-bold">Target Client <span class="text-danger">*</span></label>
-                                        <select id="cfgClientId" class="form-select admin-client-dropdown" required>
-                                            <option value="" disabled selected>Select a client...</option>
-                                            {% for c in clients %}
-                                                <option value="{{ c.id }}">[{{ c.id }}] {{ c.name }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                </div>
+                                <input type="hidden" id="cfgClientId" value="{{ targetClientId }}">
+                                
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label class="fw-bold">Base SMS Rate (KES)</label>
-                                        <input type="number" id="cfgBaseRate" class="form-control" step="0.01" min="0" placeholder="e.g., 0.80">
-                                        <small class="text-muted">Leave blank to keep existing rate.</small>
+                                        <label class="fw-bold">Base SMS Rate (KES) <span class="text-danger">*</span></label>
+                                        <input type="number" id="cfgBaseRate" class="form-control" step="0.01" min="0" value="{{ billingConfig.base_sms_rate | default('1.00') }}" required>
                                     </div>
                                     <div class="col-md-6 mb-3 d-flex align-items-center mt-3 mt-md-0">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="cfgRefund" value="true">
+                                            <input class="form-check-input" type="checkbox" id="cfgRefund" value="true" {% if billingConfig.refund_on_failed_delivery !== false %}checked{% endif %}>
                                             <label class="form-check-label fw-bold" for="cfgRefund">
                                                 Refund on Failed Delivery?
                                             </label>
@@ -269,6 +260,11 @@
                                 </div>
                                 <button type="submit" id="btn-submit-cfg" class="btn btn-warning text-dark mt-2">Update Configuration</button>
                             </form>
+                            {% else %}
+                            <div class="alert alert-info border-0 shadow-sm mb-0">
+                                <i class="bi bi-info-circle-fill me-2"></i> Please select a target client from the <strong>Admin Override Mode</strong> menu at the top of the page to view and edit their specific billing configuration.
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 

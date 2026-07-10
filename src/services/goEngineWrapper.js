@@ -808,6 +808,16 @@ const manualWalletAdjustment = async (payload, req) => {
     } catch (error) { handleEngineError(error, 'manualWalletAdjustment'); }
 };
 
+const getClientBillingConfig = async (targetClientId, req) => {
+    try {
+        const response = await clients.wallet.get(
+            `/api/v1/admin/wallet/config/${targetClientId}`,
+            withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
+        );
+        return response.data;
+    } catch (error) { handleEngineError(error, 'getClientBillingConfig'); }
+};
+
 const updateBillingConfig = async (targetClientId, payload, req) => {
     try {
         const response = await clients.wallet.put(
@@ -1305,7 +1315,7 @@ module.exports = {
     getWalletHistory,
     getWalletData,
     manualWalletAdjustment,
-    updateBillingConfig,
+    getClientBillingConfig,updateBillingConfig,
     initiateCardTopUp, initiateMpesaTopUp,
     submitBankTransfer, approveBankTransfer,getBankTransfers,
 
