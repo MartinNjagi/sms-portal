@@ -1250,7 +1250,7 @@ const getUnifiedOutbox = async (req, page = 1, limit = 50) => {
 const getDashboardAnalytics = async (req, startDate,endDate) => {
     try {
         const response = await clients.sms.get(
-            `/api/v1/analytics?start_date=${startDate}&end_date=${endDate}`,
+            `/api/v1/analytics/daily?start_date=${startDate}&end_date=${endDate}`,
             withContext(req, { Authorization: `Bearer ${getJWT(req)}` })
         );
         return response.data;

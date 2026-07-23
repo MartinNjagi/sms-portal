@@ -25,7 +25,7 @@ dashboardController.renderDashboard = async (req, res, next) => {
         ]);
 
         const campaigns = campaignsRes.data || [];
-        const dailyData = response.data?.data || [];
+        const dailyData = analyticsRes.data || [];
 
         // 3. Aggregate totals for the Top Summary Cards
         const totals = dailyData.reduce((acc, curr) => {
